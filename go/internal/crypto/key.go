@@ -1,0 +1,71 @@
+/*
+ * TencentBlueKing is pleased to support the open source community by making
+ * 蓝鲸智云 - 凭证管理服务(BlueKing - Key Management Service) available.
+ * Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
+ * Licensed under the MIT License (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ * http://opensource.org/licenses/MIT
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+ * language governing permissions and limitations under the License.We undertake not
+ * to change the open source license (MIT license) applicable to the current version
+ * of the project delivered to anyone in the future.
+ */
+
+package crypto
+
+import (
+	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto/rsa"
+	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto/sm2"
+	"github.com/TencentBlueKing/bk-kms-sdk/go/types"
+)
+
+// KeyPair temporary key pair for consume credential.
+type KeyPair struct {
+	publicKey  string
+	privateKey string
+}
+
+// NewKeyPair creates temporary key pair.
+func NewKeyPair(cryptoType types.CryptoType) (*KeyPair, error) {
+	if err := cryptoType.ValidateAsymmetric(); err != nil {
+		return nil, err
+	}
+
+	var err error
+	var publicKey string
+	var privateKey string
+
+	if cryptoType == types.CryptoTypeRSA {
+		publicKey, privateKey, err = rsa.GenerateKeyPair()
+	}
+
+	if cryptoType == types.CryptoTypeSM2 {
+		publicKey, privateKey, err = sm2.GenerateKeyPair()
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &KeyPair{publicKey: publicKey, privateKey: privateKey}, nil
+}
+
+// PublicKey returns public key.
+func (k *KeyPair) PublicKey() string {
+	if k == nil {
+		return ""
+	}
+
+	return k.publicKey
+}
+
+// PrivateKey returns private key.
+func (k *KeyPair) PrivateKey() string {
+	if k == nil {
+		return ""
+	}
+
+	return k.privateKey
+}
