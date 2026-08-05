@@ -124,7 +124,9 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 		return nil, fmt.Errorf("sign error(%+v)", err)
 	}
 
-	statusCode, respBody, err := c.sendRequest(ctx, req, defaultOptions.accessKey, timestamp, nonce, signature)
+	statusCode, respBody, err := c.sendRequest(ctx, defaultOptions.tenantID,
+		req, defaultOptions.accessKey, timestamp, nonce, signature)
+
 	if err != nil {
 		return nil, err
 	}
@@ -132,8 +134,8 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 	return c.decryptResponse(statusCode, respBody, keyPair.PrivateKey())
 }
 
-func (c *client) sendRequest(ctx context.Context, req types.ConsumeCredentialReq,
-	accessKey, timestamp, nonce, signature string) (int, []byte, error) {
+func (c *client) sendRequest(ctx context.Context, tenantID string,
+	req types.ConsumeCredentialReq, accessKey, timestamp, nonce, signature string) (int, []byte, error) {
 
 	if req.CredentialIDList == nil {
 		req.CredentialIDList = []int64{}
@@ -157,6 +159,7 @@ func (c *client) sendRequest(ctx context.Context, req types.ConsumeCredentialReq
 	request.Header.Set(common.BKKMSSignatureHeader, signature)
 	request.Header.Set(common.ContentTypeHeader, common.ContentTypeJSONCharsetUTF8)
 	request.Header.Set(common.BKAPIRequestIDHeader, common.GenReqID())
+	request.Header.Set(common.BKTenantIDHeader, tenantID)
 
 	response, err := c.opts.httpClient.Do(request)
 	if err != nil {

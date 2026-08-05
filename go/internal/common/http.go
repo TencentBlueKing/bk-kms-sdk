@@ -16,6 +16,15 @@
 package common
 
 const (
+	// DefaultTenantID default tenant id.
+	DefaultTenantID = "default"
+
+	// BKAPIRequestIDHeader blueking apigw api request id header.
+	BKAPIRequestIDHeader = "X-Bkapi-Request-Id"
+
+	// BKTenantIDHeader blueking apigw tenant id header.
+	BKTenantIDHeader = "X-Bk-Tenant-Id"
+
 	// BKKMSAKHeader consume credential access key header.
 	BKKMSAKHeader = "X-BKKMS-AK"
 
@@ -27,9 +36,6 @@ const (
 
 	// BKKMSSignatureHeader consume credential signature header.
 	BKKMSSignatureHeader = "X-BKKMS-Signature"
-
-	// BKAPIRequestIDHeader blueking apigw api request id header.
-	BKAPIRequestIDHeader = "X-Bkapi-Request-Id"
 )
 
 const (
