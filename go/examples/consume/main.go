@@ -25,10 +25,13 @@ import (
 )
 
 func main() {
-	// Step 1: build a consume client pointing at the KMS apiserver HTTP endpoint.
-	// BaseURL must include the scheme and the apiserver HTTP port (default 23681).
+	// Step 1: build a consume client pointing at the KMS APIGW endpoint.
+	// BaseURL must include the scheme and the APIGW prefix of the target stage.
+	// App code / secret are the application credentials for APIGW.
+	// Direct-mode callers can use consume.WithDirect() instead of WithAppCodeSecret; BaseURL then points at the apiserver address.
 	client, err := consume.New(
-		consume.WithBaseURL("http://xxxx:23681"),
+		consume.WithBaseURL("http://xxxx/api/bk-kms/prod"),
+		consume.WithAppCodeSecret("your_app_code_xxxx", "your_app_secret_xxxx"),
 	)
 	if err != nil {
 		log.Fatalf("failed to create new consume client: %+v", err)
@@ -40,6 +43,7 @@ func main() {
 	// Platform callers that pull credentials on behalf of different tenants can add
 	// consume.WithTenantID("some_tenant") to target a specific tenant per request;
 	// when omitted the SDK sends the "default" tenant.
+	// Direct-mode callers can add consume.WithJWTToken("some_jwt_token") to carry JWT authentication per request.
 	results, err := client.ConsumeCredential(context.Background(),
 		consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
 		consume.WithCredentialIDList(1, 2),

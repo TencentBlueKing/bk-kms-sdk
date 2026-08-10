@@ -34,7 +34,10 @@ import (
 )
 
 const (
-	// consumeCredentialPath consume credential path.
+	// consumeCredentialAPIGWPath consume credential apigw path.
+	consumeCredentialAPIGWPath = "/api/v1/consume_credential"
+
+	// consumeCredentialPath consume credential apiservice path.
 	consumeCredentialPath = "/api/v1/consume/credential"
 )
 
@@ -124,8 +127,7 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 		return nil, fmt.Errorf("sign error(%+v)", err)
 	}
 
-	statusCode, respBody, err := c.sendRequest(ctx, defaultOptions.tenantID,
-		req, defaultOptions.accessKey, timestamp, nonce, signature)
+	statusCode, respBody, err := c.sendRequest(ctx, defaultOptions, req, timestamp, nonce, signature)
 
 	if err != nil {
 		return nil, err
@@ -134,8 +136,8 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 	return c.decryptResponse(statusCode, respBody, keyPair.PrivateKey())
 }
 
-func (c *client) sendRequest(ctx context.Context, tenantID string,
-	req types.ConsumeCredentialReq, accessKey, timestamp, nonce, signature string) (int, []byte, error) {
+func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
+	req types.ConsumeCredentialReq, timestamp, nonce, signature string) (int, []byte, error) {
 
 	if req.CredentialIDList == nil {
 		req.CredentialIDList = []int64{}
@@ -146,20 +148,39 @@ func (c *client) sendRequest(ctx context.Context, tenantID string,
 		return 0, nil, fmt.Errorf("marshal request body error(%+v)", err)
 	}
 
-	consumeCredentialURL := common.JoinURL(c.opts.baseURL, consumeCredentialPath)
+	path := consumeCredentialAPIGWPath
+	if c.opts.direct {
+		path = consumeCredentialPath
+	}
+
+	consumeCredentialURL := common.JoinURL(c.opts.baseURL, path)
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, consumeCredentialURL, bytes.NewReader(body))
 	if err != nil {
 		return 0, nil, fmt.Errorf("new request error(%+v)", err)
 	}
 
-	request.Header.Set(common.BKKMSAKHeader, accessKey)
+	// set request headers
+	if c.opts.direct {
+		if token := strings.TrimSpace(opts.jwtToken); token != "" {
+			request.Header.Set(common.BKAPIJWTHeader, token)
+		}
+	} else {
+		authorization, err := genAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
+		if err != nil {
+			return 0, nil, err
+		}
+
+		request.Header.Set(common.BKAPIAuthorizationHeader, authorization)
+	}
+
+	request.Header.Set(common.ContentTypeHeader, common.ContentTypeJSONCharsetUTF8)
+	request.Header.Set(common.BKAPIRequestIDHeader, common.GenReqID())
+	request.Header.Set(common.BKTenantIDHeader, opts.tenantID)
+	request.Header.Set(common.BKKMSAKHeader, opts.accessKey)
 	request.Header.Set(common.BKKMSTimestampHeader, timestamp)
 	request.Header.Set(common.BKKMSNonceHeader, nonce)
 	request.Header.Set(common.BKKMSSignatureHeader, signature)
-	request.Header.Set(common.ContentTypeHeader, common.ContentTypeJSONCharsetUTF8)
-	request.Header.Set(common.BKAPIRequestIDHeader, common.GenReqID())
-	request.Header.Set(common.BKTenantIDHeader, tenantID)
 
 	response, err := c.opts.httpClient.Do(request)
 	if err != nil {
@@ -173,6 +194,23 @@ func (c *client) sendRequest(ctx context.Context, tenantID string,
 	}
 
 	return response.StatusCode, respBody, nil
+}
+
+func genAuthorizationHeader(appCode, appSecret string) (string, error) {
+	auth := struct {
+		AppCode   string `json:"bk_app_code"`
+		AppSecret string `json:"bk_app_secret"`
+	}{
+		AppCode:   appCode,
+		AppSecret: appSecret,
+	}
+
+	authorization, err := json.Marshal(auth)
+	if err != nil {
+		return "", fmt.Errorf("marshal authorization header error(%+v)", err)
+	}
+
+	return string(authorization), nil
 }
 
 func (c *client) decryptResponse(statusCode int, body []byte, privateKey string) ([]types.ConsumeResult, error) {

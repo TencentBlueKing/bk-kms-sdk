@@ -10,17 +10,29 @@ go get github.com/TencentBlueKing/bk-kms-sdk/go
 
 ```go
 client, err := consume.New(
-    consume.WithBaseURL("http://xxxx:23681"),
+    consume.WithBaseURL("http://xxxx/api/bk-kms/prod"),
+    consume.WithAppCodeSecret("your_app_code_xxxx", "your_app_secret_xxxx"),
 )
 ```
 
-`BaseURL` 需指定到 KMS 的 HTTP 端口 (`23681`)。
+`BaseURL` 需指定到 KMS 网关对应环境的前缀, `AppCode` / `AppSecret` 为调用方的应用态。
 
-| 选项          | 必填 | 默认值             | 说明                                             |
-| ------------- | ---- | ------------------ | ------------------------------------------------ |
-| `WithBaseURL` | 是   | 无                 | KMS 地址, 需带协议与端口, 如 `http://xxxx:23681` |
-| `WithTimeout` | 否   | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖    |
-| `WithClient`  | 否   | 内置 `http.Client` | 自定义 `http.Client`, 用于接入自建连接池等场景   |
+| 选项                | 必填 | 默认值             | 说明                                                               |
+| ------------------- | ---- | ------------------ | ------------------------------------------------------------------ |
+| `WithBaseURL`       | 是   | 无                 | KMS 网关地址, 需带协议与网关前缀, 如 `http://xxxx/api/bk-kms/prod` |
+| `WithAppCodeSecret` | 是   | 无                 | 调用方应用的 App Code / App Secret                                 |
+| `WithTimeout`       | 否   | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖                      |
+| `WithClient`        | 否   | 内置 `http.Client` | 自定义 `http.Client`, 用于接入自建连接池等场景                     |
+| `WithDirect`        | 否   | 关闭               | 不经过网关, 直连 KMS 后端服务, 该模式下无需应用态                  |
+
+不经过网关直连 KMS 后端时, 可通过 `WithDirect` 走后端路径且不携带应用态, `BaseURL` 需指定到 KMS 的 HTTP 端口 (`23681`); 业务接入无需关心:
+
+```go
+client, err := consume.New(
+    consume.WithBaseURL("http://xxxx:23681"),
+    consume.WithDirect(),
+)
+```
 
 ## 3. 消费凭证
 
@@ -30,6 +42,16 @@ client, err := consume.New(
 results, err := client.ConsumeCredential(context.Background(),
     consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
     consume.WithCredentialIDList(1, 2),
+)
+```
+
+选定直连模式下, 可以通过 `WithJWTToken` 传入 JWT token 完成直连请求认证, 业务接入无需关心:
+
+```go
+results, err := client.ConsumeCredential(context.Background(),
+    consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
+    consume.WithCredentialIDList(1, 2),
+    consume.WithJWTToken("your_jwt_token_xxxx"),
 )
 ```
 
@@ -57,12 +79,13 @@ results, err := client.ConsumeCredential(context.Background(),
 )
 ```
 
-| 选项                   | 必填 | 默认值             | 说明                                                       |
-| ---------------------- | ---- | ------------------ | ---------------------------------------------------------- |
-| `WithAccessKeySecret`  | 是   | 无                 | 调用方的 Access Key / Secret Key                           |
-| `WithCredentialIDList` | 否   | 空(返回全部凭证)   | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
-| `WithCrypto`           | 否   | `RSA + AES(CBC)`   | 混合加密算法组合, 可选取值见下表                           |
-| `WithTenantID`         | 否   | `default`          | 目标租户 ID, 仅限多租户场景使用, 默认为default租户         |
+| 选项                   | 必填 | 默认值           | 说明                                                       |
+| ---------------------- | ---- | ---------------- | ---------------------------------------------------------- |
+| `WithAccessKeySecret`  | 是   | 无               | 调用方的 Access Key / Secret Key                           |
+| `WithCredentialIDList` | 否   | 空(返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
+| `WithCrypto`           | 否   | `RSA + AES(CBC)` | 混合加密算法组合, 可选取值见下表                           |
+| `WithTenantID`         | 否   | `default`        | 目标租户 ID, 仅限多租户场景使用, 默认为default租户         |
+| `WithJWTToken`         | 否   | 无               | JWT token, 仅限直连模式使用                                |
 
 当前版本支持的 `WithCrypto` 可选组合:
 
