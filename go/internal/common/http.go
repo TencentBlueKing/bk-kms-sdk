@@ -19,6 +19,12 @@ const (
 	// DefaultTenantID default tenant id.
 	DefaultTenantID = "default"
 
+	// BKAPIAuthorizationHeader blueking apigw authorization header.
+	BKAPIAuthorizationHeader = "X-Bkapi-Authorization"
+
+	// BKAPIJWTHeader blueking apigw jwt header.
+	BKAPIJWTHeader = "X-Bkapi-JWT"
+
 	// BKAPIRequestIDHeader blueking apigw api request id header.
 	BKAPIRequestIDHeader = "X-Bkapi-Request-Id"
 

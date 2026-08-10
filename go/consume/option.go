@@ -32,7 +32,10 @@ const (
 
 // clientOptions holds the internal state configured via ClientOption.
 type clientOptions struct {
+	direct     bool
 	baseURL    string
+	appCode    string
+	appSecret  string
 	timeout    time.Duration
 	httpClient *http.Client
 }
@@ -50,6 +53,16 @@ func (o *clientOptions) validate() error {
 		return errors.New("invalid client options, base url cannot be empty")
 	}
 
+	if !o.direct {
+		if strings.TrimSpace(o.appCode) == "" {
+			return errors.New("invalid client options, app code cannot be empty")
+		}
+
+		if strings.TrimSpace(o.appSecret) == "" {
+			return errors.New("invalid client options, app secret cannot be empty")
+		}
+	}
+
 	if o.timeout <= 0 {
 		return errors.New("invalid client options, timeout is invalid")
 	}
@@ -60,10 +73,26 @@ func (o *clientOptions) validate() error {
 // ClientOption customizes options accepted by New.
 type ClientOption func(*clientOptions)
 
-// WithBaseURL sets the base URL of the KMS apiserver.
+// WithDirect sets the client to connect directly to the KMS backend service.
+// In this mode, app code / secret are not required.
+func WithDirect() ClientOption {
+	return func(o *clientOptions) {
+		o.direct = true
+	}
+}
+
+// WithBaseURL sets the base URL of the KMS apigw or apiserver.
 func WithBaseURL(url string) ClientOption {
 	return func(o *clientOptions) {
 		o.baseURL = strings.TrimRight(url, "/")
+	}
+}
+
+// WithAppCodeSecret sets the app code and app secret.
+func WithAppCodeSecret(appCode, appSecret string) ClientOption {
+	return func(o *clientOptions) {
+		o.appCode = appCode
+		o.appSecret = appSecret
 	}
 }
 
@@ -84,6 +113,7 @@ func WithClient(client *http.Client) ClientOption {
 // consumeOptions holds the internal state configured via ConsumeOption.
 type consumeOptions struct {
 	tenantID         string
+	jwtToken         string
 	accessKey        string
 	secretKey        string
 	credentialIDList []int64
@@ -111,6 +141,15 @@ type ConsumeOption func(*consumeOptions)
 func WithTenantID(tenantID string) ConsumeOption {
 	return func(o *consumeOptions) {
 		o.tenantID = tenantID
+	}
+}
+
+// WithJWTToken sets the JWT token carried by the X-Bkapi-JWT header.
+// Useful for direct-mode callers that need JWT authentication;
+// if client is running through the gateway, callers do not need to care about this option.
+func WithJWTToken(token string) ConsumeOption {
+	return func(o *consumeOptions) {
+		o.jwtToken = token
 	}
 }
 
