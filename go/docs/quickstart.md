@@ -45,7 +45,7 @@ results, err := client.ConsumeCredential(context.Background(),
 )
 ```
 
-选定直连模式下, 可以通过 `WithJWTToken` 传入 JWT token 完成 APIGW 鉴权, 业务接入无需关心:
+选定直连模式下, 可以通过 `WithJWTToken` 传入 JWT token 完成直连请求认证, 业务接入无需关心:
 
 ```go
 results, err := client.ConsumeCredential(context.Background(),
