@@ -1,0 +1,100 @@
+/*
+ * TencentBlueKing is pleased to support the open source community by making
+ * 蓝鲸智云 - 凭证管理服务(BlueKing - Key Management Service) available.
+ * Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
+ * Licensed under the MIT License (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ * http://opensource.org/licenses/MIT
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+ * language governing permissions and limitations under the License.We undertake not
+ * to change the open source license (MIT license) applicable to the current version
+ * of the project delivered to anyone in the future.
+ */
+
+#include <bk-kms/client.h>
+
+#include <cstdio>
+#include <string>
+
+int main()
+{
+    // Step 1: build a Client. baseUrl must include the scheme and the APIGW
+    // prefix. For direct mode, set ClientOptions.direct = true and point
+    // baseUrl at the apiserver address.
+    bkkms::ClientOptions clientOpts;
+    clientOpts.baseUrl = "http://xxxx/api/bk-kms/prod";
+    clientOpts.appCode = "your_app_code_xxxx";
+    clientOpts.appSecret = "your_app_secret_xxxx";
+
+    std::string err;
+    auto client = bkkms::Client::New(clientOpts, err);
+    if (!client)
+    {
+        std::fprintf(stderr, "failed to create new consume client: %s\n", err.c_str());
+        return 1;
+    }
+
+    // Step 2: consume credentials with the caller's AK / SK. Leaving
+    // credentialIDList empty returns every credential the AK is authorised
+    // for. Leaving crypto default falls back to RSA + AES(CBC).
+    bkkms::ConsumeOptions consumeOpts;
+    consumeOpts.accessKey = "your_access_key_xxxx";
+    consumeOpts.secretKey = "your_secret_key_xxxx";
+    consumeOpts.credentialIDList = {1, 2};
+
+    auto results = client->ConsumeCredential(consumeOpts, err);
+    if (!err.empty())
+    {
+        std::fprintf(stderr, "failed to consume credential: %s\n", err.c_str());
+        return 1;
+    }
+
+    // Step 3: walk each per-credential result. A non-zero errCode means that
+    // one entry failed while others may still be usable.
+    for (const auto& r : results)
+    {
+        if (!bkkms::IsOK(r.errCode))
+        {
+            std::printf("consume credential %lld: code=%d msg=%s\n",
+                        static_cast<long long>(r.credentialID), r.errCode, r.errMsg.c_str());
+            continue;
+        }
+
+        if (!r.hasCredential)
+        {
+            continue;
+        }
+
+        const bkkms::Credential& c = r.credential;
+
+        std::printf("credential %lld: name=%s type=%s\n",
+                    static_cast<long long>(r.credentialID), c.name.c_str(), c.type.c_str());
+
+        if (c.type == bkkms::CredentialTypeSinglePassword)
+        {
+            std::printf("  password=%s\n", c.authInfo.password.c_str());
+        }
+        else if (c.type == bkkms::CredentialTypeUsernamePassword)
+        {
+            std::printf("  username=%s password=%s\n",
+                        c.authInfo.username.c_str(), c.authInfo.password.c_str());
+        }
+        else if (c.type == bkkms::CredentialTypeSingleSecretKey)
+        {
+            std::printf("  secret_key=%s\n", c.authInfo.secretKey.c_str());
+        }
+        else if (c.type == bkkms::CredentialTypeAppIDSecretKey)
+        {
+            std::printf("  app_id=%s secret_key=%s\n",
+                        c.authInfo.appID.c_str(), c.authInfo.secretKey.c_str());
+        }
+        else
+        {
+            std::printf("unknown credential type=%s\n", c.type.c_str());
+        }
+    }
+
+    return 0;
+}

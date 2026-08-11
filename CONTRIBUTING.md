@@ -5,6 +5,7 @@
 BK-KMS-SDK 按语言划分子目录, 每种语言的实现有各自的规范文件, 请结合本文一起阅读。
 
 - [GOLANG CONTRIBUTING](go/CONTRIBUTING.md)
+- [CPP CONTRIBUTING](cpp/CONTRIBUTING.md)
 
 ## 目录约定
 
