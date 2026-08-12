@@ -32,7 +32,8 @@ std::string JoinURL(std::initializer_list<std::string> segments) noexcept;
 // Returns false when the URL is malformed. The path prefix keeps its leading
 // '/' and drops trailing slashes.
 bool SplitBaseURL(const std::string& baseUrl,
-                  std::string& scheme, std::string& host, uint16_t& port, std::string& pathPrefix) noexcept;
+                  std::string& scheme, std::string& host,
+                  uint16_t& port, std::string& pathPrefix) noexcept;
 
 } // namespace bkkms
 

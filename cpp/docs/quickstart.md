@@ -153,11 +153,12 @@ consumeOpts.tenantID = "tenant_name";
 
 ### 4.2 Credential
 
-| 字段       | 类型                | 说明                         |
-| ---------- | ------------------- | ---------------------------- |
-| `name`     | `std::string`       | 凭证名称                     |
-| `type`     | `std::string`       | 凭证类型, 取值见下表         |
-| `authInfo` | `bkkms::AuthInfo`   | 凭证明文, 字段随 `type` 而异 |
+| 字段         | 类型                | 说明                         |
+| ------------ | ------------------- | ---------------------------- |
+| `name`       | `std::string`       | 凭证名称                     |
+| `type`       | `std::string`       | 凭证类型, 取值见下表         |
+| `authInfo`   | `bkkms::AuthInfo`   | 凭证明文, 字段随 `type` 而异 |
+| `annotation` | `std::string`       | 凭证注解                     |
 
 `type` 可选值:
 

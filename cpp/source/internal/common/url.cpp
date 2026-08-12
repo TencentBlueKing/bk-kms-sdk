@@ -103,7 +103,8 @@ std::string JoinURL(std::initializer_list<std::string> segments) noexcept
 }
 
 bool SplitBaseURL(const std::string& url,
-                  std::string& scheme, std::string& host, uint16_t& port, std::string& pathPrefix) noexcept
+                  std::string& scheme, std::string& host,
+                  uint16_t& port, std::string& pathPrefix) noexcept
 {
     // Match either "http://" or "https://" up front so the caller knows
     // which transport httplib should speak.

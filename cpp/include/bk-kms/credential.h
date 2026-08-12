@@ -44,6 +44,7 @@ struct Credential
     std::string name;
     std::string type;
     AuthInfo authInfo;
+    std::string annotation;
 };
 
 // Two-level result: overall RPC success + per-credential errCode. The

@@ -127,11 +127,12 @@ results, err := client.ConsumeCredential(context.Background(),
 
 ### 4.2 Credential
 
-| 字段       | 类型                   | 说明                         |
-| ---------- | ---------------------- | ---------------------------- |
-| `Name`     | `string`               | 凭证名称                     |
-| `Type`     | `types.CredentialType` | 凭证类型, 取值见下表         |
-| `AuthInfo` | `types.AuthInfo`       | 凭证明文, 字段随 `Type` 而异 |
+| 字段         | 类型                   | 说明                         |
+| ------------ | ---------------------- | ---------------------------- |
+| `Name`       | `string`               | 凭证名称                     |
+| `Type`       | `types.CredentialType` | 凭证类型, 取值见下表         |
+| `AuthInfo`   | `types.AuthInfo`       | 凭证明文, 字段随 `Type` 而异 |
+| `Annotation` | `string`               | 凭证注解                     |
 
 `Type` 可选值:
 

@@ -69,8 +69,8 @@ int main()
 
         const bkkms::Credential& c = r.credential;
 
-        std::printf("credential %lld: name=%s type=%s\n",
-                    static_cast<long long>(r.credentialID), c.name.c_str(), c.type.c_str());
+        std::printf("credential %lld: name=%s type=%s annotation=%s\n",
+                    static_cast<long long>(r.credentialID), c.name.c_str(), c.type.c_str(), c.annotation.c_str());
 
         if (c.type == bkkms::CredentialTypeSinglePassword)
         {

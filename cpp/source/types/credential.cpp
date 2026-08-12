@@ -20,8 +20,7 @@
 namespace bkkms {
 
 bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
-                                 const CryptoInfo& crypto, const std::string& publicKeyB64,
-                                 std::string& out) noexcept
+                                 const CryptoInfo& crypto, const std::string& publicKeyB64, std::string& out) noexcept
 {
     // Fixed field order (must not be changed - server signature depends on this exact byte sequence):
     //   credential_id_list -> crypto{asymmetric_type -> symmetric_type -> symmetric_mode} -> public_key
@@ -64,8 +63,7 @@ bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
     return true;
 }
 
-bool MarshalAuthorizationHeader(const std::string& appCode, const std::string& appSecret,
-                                std::string& out) noexcept
+bool MarshalAuthorizationHeader(const std::string& appCode, const std::string& appSecret, std::string& out) noexcept
 {
     rapidjson::StringBuffer buf;
     rapidjson::Writer<rapidjson::StringBuffer> w(buf);
@@ -136,6 +134,7 @@ static void ReadCredential(const rapidjson::Value& node, Credential& cred) noexc
 {
     cred.name = RAPIDJSON_GET_STRING(node, "name", "");
     cred.type = RAPIDJSON_GET_STRING(node, "type", "");
+    cred.annotation = RAPIDJSON_GET_STRING(node, "annotation", "");
 
     if (!RAPIDJSON_CHECK_IS_OBJECT(node, "auth_info"))
     {
