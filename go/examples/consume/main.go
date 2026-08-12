@@ -61,7 +61,7 @@ func main() {
 		}
 
 		cred := result.Credential
-		fmt.Printf("credential %d: name=%s type=%s\n", result.CredentialID, cred.Name, cred.Type)
+		fmt.Printf("credential %d: name=%s type=%s annotation=%s\n", result.CredentialID, cred.Name, cred.Type, cred.Annotation)
 
 		switch cred.Type {
 		case types.CredentialTypeSinglePassword:
