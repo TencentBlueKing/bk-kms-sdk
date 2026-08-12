@@ -54,9 +54,10 @@ type AuthInfo struct {
 
 // Credential credential.
 type Credential struct {
-	Name     string         `json:"name"`
-	Type     CredentialType `json:"type"`
-	AuthInfo AuthInfo       `json:"auth_info"`
+	Name       string         `json:"name"`
+	Type       CredentialType `json:"type"`
+	AuthInfo   AuthInfo       `json:"auth_info"`
+	Annotation string         `json:"annotation"`
 }
 
 // ConsumeResult consume result.
