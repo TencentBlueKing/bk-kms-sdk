@@ -14,6 +14,7 @@
 ## Overview
 
 * [golang-sdk](go/README.md)
+* [cpp-sdk](cpp/README.md)
 
 ## Features
 
@@ -24,6 +25,7 @@
 ## Getting started
 
 * [Go SDK 快速上手](go/docs/quickstart.md)
+* [CPP SDK 快速上手](cpp/docs/quickstart.md)
 
 ## Roadmap
 

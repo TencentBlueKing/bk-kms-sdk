@@ -18,14 +18,14 @@ client, err := consume.New(
 `BaseURL` 需指定到 KMS 网关对应环境的地址, `AppCode` / `AppSecret` 为调用方的应用态认证参数。
 
 | 选项                | 必填 | 默认值             | 说明                                                      |
-| ------------------- | ---- | ------------------ | ----------------------------------------------------------|
+| ------------------- | ---- | ------------------ | --------------------------------------------------------- |
 | `WithBaseURL`       | 是   | 无                 | KMS 网关地址, 如 `http://xxxx/api/bk-kms/prod`            |
 | `WithAppCodeSecret` | 是   | 无                 | 调用方应用态认证参数 App Code / App Secret                |
 | `WithTimeout`       | 否   | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖             |
 | `WithClient`        | 否   | 内置 `http.Client` | 自定义 `http.Client`, 如有需要可设置更多维度参数的客户端  |
 | `WithDirect`        | 否   | 关闭               | 不经过网关, 直连 KMS 后端服务, 该模式下无需应用态认证参数 |
 
-特殊情况下需要不经过网关直连 KMS 后端时, 可通过 `WithDirect` 开启, `BaseURL` 需指定到 KMS 的 HTTP 端口 (`23680`), 常规情况下业务接入请走网关模式,
+特殊情况下需要不经过网关直连 KMS 后端时, 可通过 `WithDirect` 开启, `BaseURL` 需指定到 KMS 的 HTTP 端口 (`23680`), 常规情况下业务接入请走网关模式:
 
 ```go
 client, err := consume.New(
