@@ -120,10 +120,13 @@ results, err := client.ConsumeCredential(context.Background(),
 
 | 常量                            | 值        | 含义     |
 | ------------------------------- | --------- | -------- |
-| `types.ErrCodeOK`               | `0`       | 成功     |
-| `types.ErrCodeGenericError`     | `1034000` | 系统错误 |
-| `types.ErrCodeNotFound`         | `1034003` | 未找到   |
-| `types.ErrCodePermissionDenied` | `1034008` | 无权限   |
+| `types.ErrCodeOK`                     | `0`       | 成功             |
+| `types.ErrCodeGenericError`           | `1034000` | 系统错误         |
+| `types.ErrCodeNotFound`               | `1034003` | 未找到           |
+| `types.ErrCodePermissionDenied`       | `1034008` | 无权限           |
+| `types.ErrCodeRequestTimeTooSkewed`   | `1034015` | 请求时间偏差过大 |
+
+其中 `ErrCodeRequestTimeTooSkewed` 表示本机与服务端时间偏差过大, 收到该错误, SDK 会依据响应 `Date` 自动校正时钟偏移并重试一次。
 
 ### 4.2 Credential
 

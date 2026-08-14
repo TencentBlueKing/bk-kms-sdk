@@ -13,26 +13,35 @@
  * of the project delivered to anyone in the future.
  */
 
-package types
+package retry
 
-const (
-	// ErrCodeOK means success.
-	ErrCodeOK = 0
+import "fmt"
 
-	// ErrCodeGenericError generic error.
-	ErrCodeGenericError = 1034000
+// Do retries the function fn at most maxAttempts times.
+func Do(maxAttempts int, fn func() (bool, error)) error {
+	var (
+		lastErr  error
+		attempts int
+	)
 
-	// ErrCodeNotFound resource not found.
-	ErrCodeNotFound = 1034003
+	for attempts < maxAttempts {
+		attempts++
 
-	// ErrCodePermissionDenied permission denied.
-	ErrCodePermissionDenied = 1034008
+		retryable, err := fn()
+		if err == nil {
+			return nil
+		}
 
-	// ErrCodeRequestTimeTooSkewed request time too skewed.
-	ErrCodeRequestTimeTooSkewed = 1034015
-)
+		lastErr = err
 
-// IsOK checks whether the error code means success.
-func IsOK(errCode int32) bool {
-	return errCode == ErrCodeOK
+		if !retryable {
+			break
+		}
+	}
+
+	if attempts > 1 {
+		return fmt.Errorf("failed after %d attempts, last error(%w)", attempts, lastErr)
+	}
+
+	return lastErr
 }

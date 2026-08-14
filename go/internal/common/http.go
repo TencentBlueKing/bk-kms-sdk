@@ -53,6 +53,9 @@ const (
 )
 
 const (
+	// DateHeader http date header.
+	DateHeader = "Date"
+
 	// ContentTypeHeader http content type header.
 	ContentTypeHeader = "Content-Type"
 
