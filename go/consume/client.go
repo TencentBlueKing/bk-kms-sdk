@@ -25,10 +25,12 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/common"
 	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto"
+	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/retry"
 	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/signature"
 	"github.com/TencentBlueKing/bk-kms-sdk/go/types"
 )
@@ -39,6 +41,9 @@ const (
 
 	// consumeCredentialPath consume credential apiservice path.
 	consumeCredentialPath = "/api/v1/consume/credential"
+
+	// consumeMaxAttempts max attempts of a consume credential request.
+	consumeMaxAttempts = 2
 )
 
 // Client provides credential consume methods.
@@ -68,6 +73,8 @@ func New(opts ...ClientOption) (Client, error) {
 
 type client struct {
 	opts *clientOptions
+
+	clockOffset atomic.Int64
 }
 
 // ConsumeCredential consume credential.
@@ -90,28 +97,49 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 		return nil, err
 	}
 
-	// generate a temporary asymmetric key pair base on the target type.
-	keyPair, err := crypto.NewKeyPair(defaultOptions.crypto.AsymmetricType)
+	var results []types.ConsumeResult
+
+	err := retry.Do(consumeMaxAttempts, func() (bool, error) {
+		result, retryable, err := c.consumeOnce(ctx, defaultOptions)
+		if err == nil {
+			results = result
+		}
+
+		return retryable, err
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("generate asymmetric key pair error(%+v)", err)
+		return nil, err
+	}
+
+	return results, nil
+}
+
+func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (
+	[]types.ConsumeResult, bool, error) {
+
+	// generate a temporary asymmetric key pair base on the target type.
+	keyPair, err := crypto.NewKeyPair(opts.crypto.AsymmetricType)
+	if err != nil {
+		return nil, false, fmt.Errorf("generate asymmetric key pair error(%+v)", err)
 	}
 
 	// generate a unique nonce string.
 	nonce, err := signature.NewNonce()
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
 	req := types.ConsumeCredentialReq{
-		CredentialIDList: defaultOptions.credentialIDList,
-		Crypto:           defaultOptions.crypto,
+		CredentialIDList: opts.credentialIDList,
+		Crypto:           opts.crypto,
 		PublicKey:        keyPair.PublicKey(),
 	}
 
-	timestamp := strconv.FormatInt(time.Now().Unix(), 10)
+	timestamp := strconv.FormatInt(time.Now().Unix()+c.clockOffset.Load(), 10)
 
-	signature, err := (&signature.ConsumeSignature{
-		SecretKey: defaultOptions.secretKey,
+	sign, err := (&signature.ConsumeSignature{
+		SecretKey: opts.secretKey,
 		Nonce:     nonce,
 		Method:    http.MethodPost,
 		URLPath:   signature.ConsumeCredentialSignaturePath,
@@ -124,20 +152,41 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 	}).Sign()
 
 	if err != nil {
-		return nil, fmt.Errorf("sign error(%+v)", err)
+		return nil, false, fmt.Errorf("sign error(%+v)", err)
 	}
 
-	statusCode, respBody, err := c.sendRequest(ctx, defaultOptions, req, timestamp, nonce, signature)
-
+	statusCode, respHeader, respBody, err := c.sendRequest(ctx, opts, req, timestamp, nonce, sign)
 	if err != nil {
-		return nil, err
+		return nil, false, err
 	}
 
-	return c.decryptResponse(statusCode, respBody, keyPair.PrivateKey())
+	var resp types.ConsumeCredentialResp
+	if err := json.Unmarshal(respBody, &resp); err != nil {
+		return nil, false, fmt.Errorf("unmarshal response error(%+v), http status(%d)", err, statusCode)
+	}
+
+	if resp.Code == types.ErrCodeRequestTimeTooSkewed {
+		if skewErr := c.correctClockSkew(respHeader.Get(common.DateHeader)); skewErr != nil {
+			return nil, false, skewErr
+		}
+
+		return nil, true, fmt.Errorf("request time too skewed, code(%d), message(%s)", resp.Code, resp.Message)
+	}
+
+	if statusCode != http.StatusOK || !types.IsOK(resp.Code) {
+		return nil, false, fmt.Errorf("consume credential error, http status(%d), code(%d), message(%s)", statusCode, resp.Code, resp.Message)
+	}
+
+	results, err := c.decryptEnvelope(resp.Data, keyPair.PrivateKey())
+	if err != nil {
+		return nil, false, err
+	}
+
+	return results, false, nil
 }
 
 func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
-	req types.ConsumeCredentialReq, timestamp, nonce, signature string) (int, []byte, error) {
+	req types.ConsumeCredentialReq, timestamp, nonce, signature string) (int, http.Header, []byte, error) {
 
 	if req.CredentialIDList == nil {
 		req.CredentialIDList = []int64{}
@@ -145,7 +194,7 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 
 	body, err := json.Marshal(req)
 	if err != nil {
-		return 0, nil, fmt.Errorf("marshal request body error(%+v)", err)
+		return 0, nil, nil, fmt.Errorf("marshal request body error(%+v)", err)
 	}
 
 	path := consumeCredentialAPIGWPath
@@ -157,7 +206,7 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, consumeCredentialURL, bytes.NewReader(body))
 	if err != nil {
-		return 0, nil, fmt.Errorf("new request error(%+v)", err)
+		return 0, nil, nil, fmt.Errorf("new request error(%+v)", err)
 	}
 
 	// set request headers
@@ -168,7 +217,7 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 	} else {
 		authorization, err := genAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
 		if err != nil {
-			return 0, nil, err
+			return 0, nil, nil, err
 		}
 
 		request.Header.Set(common.BKAPIAuthorizationHeader, authorization)
@@ -185,16 +234,16 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 
 	response, err := c.opts.httpClient.Do(request)
 	if err != nil {
-		return 0, nil, fmt.Errorf("send request error(%+v)", err)
+		return 0, nil, nil, fmt.Errorf("send request error(%+v)", err)
 	}
 	defer response.Body.Close()
 
 	respBody, err := io.ReadAll(response.Body)
 	if err != nil {
-		return 0, nil, fmt.Errorf("read response body error(%+v)", err)
+		return 0, nil, nil, fmt.Errorf("read response body error(%+v)", err)
 	}
 
-	return response.StatusCode, respBody, nil
+	return response.StatusCode, response.Header.Clone(), respBody, nil
 }
 
 func genAuthorizationHeader(appCode, appSecret string) (string, error) {
@@ -214,22 +263,28 @@ func genAuthorizationHeader(appCode, appSecret string) (string, error) {
 	return string(authorization), nil
 }
 
-func (c *client) decryptResponse(statusCode int, body []byte, privateKey string) ([]types.ConsumeResult, error) {
-	var resp types.ConsumeCredentialResp
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, fmt.Errorf("unmarshal response error(%+v), http status(%d)", err, statusCode)
+func (c *client) correctClockSkew(date string) error {
+	date = strings.TrimSpace(date)
+	if date == "" {
+		return errors.New("empty date")
 	}
 
-	if statusCode != http.StatusOK || !types.IsOK(resp.Code) {
-		return nil, fmt.Errorf("consume credential error, http status(%d), code(%d), message(%s)",
-			statusCode, resp.Code, resp.Message)
+	serverTime, err := http.ParseTime(date)
+	if err != nil {
+		return fmt.Errorf("parse date error(%+v)", err)
 	}
 
-	if resp.Data == nil || resp.Data.Envelope == "" {
+	c.clockOffset.Store(serverTime.Unix() - time.Now().Unix())
+
+	return nil
+}
+
+func (c *client) decryptEnvelope(data *types.ConsumeCredentialData, privateKey string) ([]types.ConsumeResult, error) {
+	if data == nil || data.Envelope == "" {
 		return nil, errors.New("empty envelope")
 	}
 
-	plaintext, err := crypto.HybridDecrypt(resp.Data.Envelope, privateKey)
+	plaintext, err := crypto.HybridDecrypt(data.Envelope, privateKey)
 	if err != nil {
 		return nil, fmt.Errorf("decrypt consume result error(%+v)", err)
 	}
