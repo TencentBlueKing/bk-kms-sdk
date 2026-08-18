@@ -206,6 +206,7 @@ bool ClientImpl::SendRequest(const ConsumeOptions& opts,
     headers.emplace(BKKMSTimestampHeader, timestamp);
     headers.emplace(BKKMSNonceHeader, nonce);
     headers.emplace(BKKMSSignatureHeader, signatureHex);
+    headers.emplace(BKKMSSDKVersionHeader, Version);
 
     auto res = cli.Post(path.c_str(), headers, body, ContentTypeJSONCharsetUTF8);
     if (!res)

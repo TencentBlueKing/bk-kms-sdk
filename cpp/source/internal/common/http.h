@@ -20,6 +20,7 @@ namespace bkkms {
 
 // clang-format off
 constexpr const char* const DefaultTenantID = "default";
+constexpr const char* const Version         = "v1.0.0-alpha.1";
 
 // APIGW / KMS request header names. The values are protocol-defined.
 constexpr const char* const BKAPIAuthorizationHeader = "X-Bkapi-Authorization";
@@ -30,6 +31,7 @@ constexpr const char* const BKKMSAKHeader            = "X-BKKMS-AK";
 constexpr const char* const BKKMSTimestampHeader     = "X-BKKMS-Timestamp";
 constexpr const char* const BKKMSNonceHeader         = "X-BKKMS-Nonce";
 constexpr const char* const BKKMSSignatureHeader     = "X-BKKMS-Signature";
+constexpr const char* const BKKMSSDKVersionHeader    = "X-BKKMS-SDK-Version";
 
 // content type header.
 constexpr const char* const ContentTypeHeader          = "Content-Type";

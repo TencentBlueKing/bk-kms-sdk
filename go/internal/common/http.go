@@ -19,6 +19,11 @@ const (
 	// DefaultTenantID default tenant id.
 	DefaultTenantID = "default"
 
+	// Version is the version of the sdk.
+	Version = "v1.0.0-alpha.1"
+)
+
+const (
 	// BKAPIAuthorizationHeader blueking apigw authorization header.
 	BKAPIAuthorizationHeader = "X-Bkapi-Authorization"
 
@@ -42,6 +47,9 @@ const (
 
 	// BKKMSSignatureHeader consume credential signature header.
 	BKKMSSignatureHeader = "X-BKKMS-Signature"
+
+	// BKKMSSDKVersionHeader consume credential sdk version header.
+	BKKMSSDKVersionHeader = "X-BKKMS-SDK-Version"
 )
 
 const (

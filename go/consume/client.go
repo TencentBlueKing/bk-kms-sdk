@@ -181,6 +181,7 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 	request.Header.Set(common.BKKMSTimestampHeader, timestamp)
 	request.Header.Set(common.BKKMSNonceHeader, nonce)
 	request.Header.Set(common.BKKMSSignatureHeader, signature)
+	request.Header.Set(common.BKKMSSDKVersionHeader, common.Version)
 
 	response, err := c.opts.httpClient.Do(request)
 	if err != nil {
