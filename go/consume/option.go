@@ -113,7 +113,6 @@ func WithClient(client *http.Client) ClientOption {
 // consumeOptions holds the internal state configured via ConsumeOption.
 type consumeOptions struct {
 	tenantID         string
-	jwtToken         string
 	accessKey        string
 	secretKey        string
 	credentialIDList []int64
@@ -141,15 +140,6 @@ type ConsumeOption func(*consumeOptions)
 func WithTenantID(tenantID string) ConsumeOption {
 	return func(o *consumeOptions) {
 		o.tenantID = tenantID
-	}
-}
-
-// WithJWTToken sets the JWT token carried by the X-Bkapi-JWT header.
-// Useful for direct-mode callers that need JWT authentication;
-// if client is running through the gateway, callers do not need to care about this option.
-func WithJWTToken(token string) ConsumeOption {
-	return func(o *consumeOptions) {
-		o.jwtToken = token
 	}
 }
 

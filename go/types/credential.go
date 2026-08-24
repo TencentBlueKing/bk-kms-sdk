@@ -79,3 +79,9 @@ type ConsumeCredentialResp struct {
 	Message string                 `json:"message"`
 	Data    *ConsumeCredentialData `json:"data,omitempty"`
 }
+
+// ConsumeEnvelope consume credential envelope.
+type ConsumeEnvelope struct {
+	Envelope   string `json:"envelope"`
+	PrivateKey string `json:"private_key"`
+}

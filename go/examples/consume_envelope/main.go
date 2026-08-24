@@ -36,21 +36,32 @@ func main() {
 		log.Fatalf("failed to create new consume client: %+v", err)
 	}
 
-	// Step 2: consume credentials with the caller's access key / secret key.
+	// Step 2: pull the credential envelope instead of the plaintext. The SDK generates a
+	// temporary key pair per request and returns the envelope together with the private key.
 	// Omitting WithCredentialIDList returns every credential the AK is authorised for.
 	// Omitting WithCrypto falls back to the default `RSA + AES(CBC)` hybrid envelope.
 	// Platform callers that pull credentials on behalf of different tenants can add
 	// consume.WithTenantID("some_tenant") to target a specific tenant per request;
 	// when omitted the SDK sends the "default" tenant.
-	results, err := client.ConsumeCredential(context.Background(),
+	envelope, err := client.ConsumeCredentialEnvelope(context.Background(),
 		consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
 		consume.WithCredentialIDList(1, 2),
 	)
 	if err != nil {
-		log.Fatalf("failed to consume credential: %+v", err)
+		log.Fatalf("failed to consume credential envelope: %+v", err)
 	}
 
-	// Step 3: walk the per-credential results. A non-zero ErrCode means this single
+	// Step 3: the envelope and the private key are both opaque base64 strings, so they
+	// can be stored or handed over to another process that needs the plaintext later.
+	fmt.Printf("envelope=%s\nprivate_key=%s\n", envelope.Envelope, envelope.PrivateKey)
+
+	// Step 4: decrypt locally whenever the plaintext is needed.
+	results, err := consume.DecryptEnvelope(envelope)
+	if err != nil {
+		log.Fatalf("failed to decrypt credential envelope: %+v", err)
+	}
+
+	// Step 5: walk the per-credential results. A non-zero ErrCode means this single
 	// credential failed while the overall request succeeded — keep going instead of aborting.
 	for _, result := range results {
 		if !types.IsOK(result.ErrCode) {
