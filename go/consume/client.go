@@ -128,25 +128,6 @@ func (c *client) ConsumeCredentialEnvelope(ctx context.Context, opts ...ConsumeO
 	return envelope, nil
 }
 
-// DecryptEnvelope decrypt credential envelope.
-func DecryptEnvelope(envelope *types.ConsumeEnvelope) ([]types.ConsumeResult, error) {
-	if envelope == nil || envelope.Envelope == "" || envelope.PrivateKey == "" {
-		return nil, errors.New("empty envelope or private key")
-	}
-
-	plaintext, err := crypto.HybridDecrypt(envelope.Envelope, envelope.PrivateKey)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt consume result error(%+v)", err)
-	}
-
-	var results []types.ConsumeResult
-	if err := json.Unmarshal([]byte(plaintext), &results); err != nil {
-		return nil, fmt.Errorf("unmarshal consume result error(%+v)", err)
-	}
-
-	return results, nil
-}
-
 func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (*types.ConsumeEnvelope, bool, error) {
 	// generate a temporary asymmetric key pair base on the target type.
 	keyPair, err := crypto.NewKeyPair(opts.crypto.AsymmetricType)
@@ -242,7 +223,7 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 	}
 
 	if !c.opts.direct {
-		authorization, err := genAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
+		authorization, err := common.GenAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
 		if err != nil {
 			return 0, nil, nil, err
 		}
@@ -271,23 +252,6 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 	}
 
 	return response.StatusCode, response.Header.Clone(), respBody, nil
-}
-
-func genAuthorizationHeader(appCode, appSecret string) (string, error) {
-	auth := struct {
-		AppCode   string `json:"bk_app_code"`
-		AppSecret string `json:"bk_app_secret"`
-	}{
-		AppCode:   appCode,
-		AppSecret: appSecret,
-	}
-
-	authorization, err := json.Marshal(auth)
-	if err != nil {
-		return "", fmt.Errorf("marshal authorization header error(%+v)", err)
-	}
-
-	return string(authorization), nil
 }
 
 func (c *client) correctClockSkew(date string) error {
