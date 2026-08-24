@@ -18,6 +18,7 @@ go get github.com/TencentBlueKing/bk-kms-sdk/go
 
 - [快速上手](docs/quickstart.md)
 - [examples/consume](examples/consume)
+- [examples/consume_envelope](examples/consume_envelope)
 
 ## License
 

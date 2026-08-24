@@ -50,6 +50,9 @@ const (
 type Client interface {
 	// ConsumeCredential consume credential.
 	ConsumeCredential(ctx context.Context, opts ...ConsumeOption) ([]types.ConsumeResult, error)
+
+	// ConsumeCredentialEnvelope consume credential envelope.
+	ConsumeCredentialEnvelope(ctx context.Context, opts ...ConsumeOption) (*types.ConsumeEnvelope, error)
 }
 
 // New creates a new client.
@@ -79,6 +82,16 @@ type client struct {
 
 // ConsumeCredential consume credential.
 func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) ([]types.ConsumeResult, error) {
+	envelope, err := c.ConsumeCredentialEnvelope(ctx, opts...)
+	if err != nil {
+		return nil, fmt.Errorf("consume credential envelope error(%+v)", err)
+	}
+
+	return DecryptEnvelope(envelope)
+}
+
+// ConsumeCredentialEnvelope consume credential envelope.
+func (c *client) ConsumeCredentialEnvelope(ctx context.Context, opts ...ConsumeOption) (*types.ConsumeEnvelope, error) {
 	defaultOptions := newDefaultConsumeOptions()
 
 	for _, opt := range opts {
@@ -97,12 +110,12 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 		return nil, err
 	}
 
-	var results []types.ConsumeResult
+	var envelope *types.ConsumeEnvelope
 
 	err := retry.Do(consumeMaxAttempts, func() (bool, error) {
 		result, retryable, err := c.consumeOnce(ctx, defaultOptions)
 		if err == nil {
-			results = result
+			envelope = result
 		}
 
 		return retryable, err
@@ -112,12 +125,10 @@ func (c *client) ConsumeCredential(ctx context.Context, opts ...ConsumeOption) (
 		return nil, err
 	}
 
-	return results, nil
+	return envelope, nil
 }
 
-func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (
-	[]types.ConsumeResult, bool, error) {
-
+func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (*types.ConsumeEnvelope, bool, error) {
 	// generate a temporary asymmetric key pair base on the target type.
 	keyPair, err := crypto.NewKeyPair(opts.crypto.AsymmetricType)
 	if err != nil {
@@ -177,12 +188,14 @@ func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (
 		return nil, false, fmt.Errorf("consume credential error, http status(%d), code(%d), message(%s)", statusCode, resp.Code, resp.Message)
 	}
 
-	results, err := c.decryptEnvelope(resp.Data, keyPair.PrivateKey())
-	if err != nil {
-		return nil, false, err
+	if resp.Data == nil || resp.Data.Envelope == "" {
+		return nil, false, errors.New("empty envelope")
 	}
 
-	return results, false, nil
+	return &types.ConsumeEnvelope{
+		Envelope:   resp.Data.Envelope,
+		PrivateKey: keyPair.PrivateKey(),
+	}, false, nil
 }
 
 func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
@@ -209,13 +222,8 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 		return 0, nil, nil, fmt.Errorf("new request error(%+v)", err)
 	}
 
-	// set request headers
-	if c.opts.direct {
-		if token := strings.TrimSpace(opts.jwtToken); token != "" {
-			request.Header.Set(common.BKAPIJWTHeader, token)
-		}
-	} else {
-		authorization, err := genAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
+	if !c.opts.direct {
+		authorization, err := common.GenAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
 		if err != nil {
 			return 0, nil, nil, err
 		}
@@ -246,23 +254,6 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 	return response.StatusCode, response.Header.Clone(), respBody, nil
 }
 
-func genAuthorizationHeader(appCode, appSecret string) (string, error) {
-	auth := struct {
-		AppCode   string `json:"bk_app_code"`
-		AppSecret string `json:"bk_app_secret"`
-	}{
-		AppCode:   appCode,
-		AppSecret: appSecret,
-	}
-
-	authorization, err := json.Marshal(auth)
-	if err != nil {
-		return "", fmt.Errorf("marshal authorization header error(%+v)", err)
-	}
-
-	return string(authorization), nil
-}
-
 func (c *client) correctClockSkew(date string) error {
 	date = strings.TrimSpace(date)
 	if date == "" {
@@ -277,22 +268,4 @@ func (c *client) correctClockSkew(date string) error {
 	c.clockOffset.Store(serverTime.Unix() - time.Now().Unix())
 
 	return nil
-}
-
-func (c *client) decryptEnvelope(data *types.ConsumeCredentialData, privateKey string) ([]types.ConsumeResult, error) {
-	if data == nil || data.Envelope == "" {
-		return nil, errors.New("empty envelope")
-	}
-
-	plaintext, err := crypto.HybridDecrypt(data.Envelope, privateKey)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt consume result error(%+v)", err)
-	}
-
-	var results []types.ConsumeResult
-	if err := json.Unmarshal([]byte(plaintext), &results); err != nil {
-		return nil, fmt.Errorf("unmarshal consume result error(%+v)", err)
-	}
-
-	return results, nil
 }

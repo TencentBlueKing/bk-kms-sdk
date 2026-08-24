@@ -8,6 +8,19 @@ go get github.com/TencentBlueKing/bk-kms-sdk/go
 
 ## 2. 创建 Client
 
+SDK 提供直连与网关两种接入模式, 由调用方类型决定: 蓝鲸平台系统接入采用直连模式, SaaS场景构建的应用采用网关模式。
+
+直连模式需开启 `WithDirect`, `BaseURL` 指向 KMS 的 HTTP 直连端口 (`23681`), 该端口不校验 JWT, 无需提供 App Code / App Secret:
+
+```go
+client, err := consume.New(
+    consume.WithBaseURL("http://xxxx:23681"),
+    consume.WithDirect(),
+)
+```
+
+网关模式无需开启 `WithDirect`, `BaseURL` 指向蓝鲸网关 APIGW 地址, 该入口由 APIGW 注入并校验 JWT, 需通过 `WithAppCodeSecret` 提供 App Code / App Secret:
+
 ```go
 client, err := consume.New(
     consume.WithBaseURL("http://xxxx/api/bk-kms/prod"),
@@ -15,26 +28,17 @@ client, err := consume.New(
 )
 ```
 
-`BaseURL` 需指定到 KMS 网关对应环境的地址, `AppCode` / `AppSecret` 为调用方的应用态认证参数。
-
-| 选项                | 必填 | 默认值             | 说明                                                      |
-| ------------------- | ---- | ------------------ | --------------------------------------------------------- |
-| `WithBaseURL`       | 是   | 无                 | KMS 网关地址, 如 `http://xxxx/api/bk-kms/prod`            |
-| `WithAppCodeSecret` | 是   | 无                 | 调用方应用态认证参数 App Code / App Secret                |
-| `WithTimeout`       | 否   | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖             |
-| `WithClient`        | 否   | 内置 `http.Client` | 自定义 `http.Client`, 如有需要可设置更多维度参数的客户端  |
-| `WithDirect`        | 否   | 关闭               | 不经过网关, 直连 KMS 后端服务, 该模式下无需应用态认证参数 |
-
-特殊情况下需要不经过网关直连 KMS 后端时, 可通过 `WithDirect` 开启, `BaseURL` 需指定到 KMS 的 HTTP 端口 (`23680`), 常规情况下业务接入请走网关模式:
-
-```go
-client, err := consume.New(
-    consume.WithBaseURL("http://xxxx:23680"),
-    consume.WithDirect(),
-)
-```
+| 选项                | 必填 | 默认值             | 说明                                                                           |
+| ------------------- | ---- | ------------------ | ------------------------------------------------------------------------------ |
+| `WithBaseURL`       | 是   | 无                 | KMS 地址, 直连时如 `http://xxxx:23681`, 网关时如 `http://xxxx/api/bk-kms/prod` |
+| `WithDirect`        | 否   | 关闭               | 开启直连调用, 不经过网关, 无需JWT                                              |
+| `WithAppCodeSecret` | 否   | 无                 | 应用态认证 App Code / App Secret (直连不需要)                                  |
+| `WithTimeout`       | 否   | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖                                  |
+| `WithClient`        | 否   | 内置 `http.Client` | 自定义 `http.Client`                                                           |
 
 ## 3. 消费凭证
+
+### 3.1 明文消费
 
 默认使用国际算法 `RSA + AES(CBC)`:
 
@@ -42,16 +46,6 @@ client, err := consume.New(
 results, err := client.ConsumeCredential(context.Background(),
     consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
     consume.WithCredentialIDList(1, 2),
-)
-```
-
-特殊情况下选定直连模式时, 需要通过 `WithJWTToken` 传入 JWT token 完成直连请求认证, 常规情况下业务接入无需关心:
-
-```go
-results, err := client.ConsumeCredential(context.Background(),
-    consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
-    consume.WithCredentialIDList(1, 2),
-    consume.WithJWTToken("your_jwt_token_xxxx"),
 )
 ```
 
@@ -85,7 +79,6 @@ results, err := client.ConsumeCredential(context.Background(),
 | `WithCredentialIDList` | 否   | 空(返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
 | `WithCrypto`           | 否   | `RSA + AES(CBC)` | 混合加密算法组合, 可选取值见下表                           |
 | `WithTenantID`         | 否   | `default`        | 目标租户 ID, 仅限多租户场景使用, 默认为default租户         |
-| `WithJWTToken`         | 否   | 无               | JWT token, 仅限直连模式使用                                |
 
 当前版本支持的 `WithCrypto` 可选组合:
 
@@ -100,9 +93,31 @@ results, err := client.ConsumeCredential(context.Background(),
 - 国际算法(默认): `RSA + AES(CBC)`
 - 国密算法: `SM2 + SM4(CBC)`
 
+### 3.2 信封消费
+
+需要密文信封而非明文时(如先落库或交由其他进程解密), 换用 `ConsumeCredentialEnvelope`, 选项与 3.1 完全一致, 网关与直连模式均适用, 返回 `(*types.ConsumeEnvelope, error)`:
+
+```go
+envelope, err := client.ConsumeCredentialEnvelope(context.Background(),
+    consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
+    consume.WithCredentialIDList(1, 2),
+)
+```
+
+| 字段         | 类型     | 说明                        |
+| ------------ | -------- | --------------------------- |
+| `Envelope`   | `string` | 信封式包裹的密文 (base64)   |
+| `PrivateKey` | `string` | 本次临时生成的私钥 (base64) |
+
+`Envelope` 与 `PrivateKey` 需自行保管, 需要明文时通过 `consume.DecryptEnvelope` 本地解密:
+
+```go
+results, err := consume.DecryptEnvelope(envelope)
+```
+
 ## 4. 处理返回值
 
-`ConsumeCredential` 返回 `([]types.ConsumeResult, error)`, 遵循请求级error + 单条err_code 的两级错误模型:
+`ConsumeCredential` 与 `DecryptEnvelope` 均返回 `([]types.ConsumeResult, error)`, 遵循请求级error + 单条err_code 的两级错误模型:
 
 - `error != nil`: 请求失败, 无结果可处理;
 - `error == nil`: 请求成功, 遍历 `results`, 单条是否成功看 `ErrCode`。
@@ -159,4 +174,5 @@ results, err := client.ConsumeCredential(context.Background(),
 
 ## 5. 完整示例
 
-见 [../examples/consume](../examples/consume)。
+明文消费见 [../examples/consume](../examples/consume);
+信封消费见 [../examples/consume_envelope](../examples/consume_envelope);
