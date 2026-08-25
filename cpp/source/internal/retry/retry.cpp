@@ -13,42 +13,46 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_OPTION_H_
-#define _BK_KMS_OPTION_H_
+#include "internal/retry/retry.h"
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include "bk-kms/crypto.h"
+#include <sstream>
 
 namespace bkkms {
 
-// Client-level options. baseUrl plus (appCode, appSecret) are required for
-// APIGW mode; when direct=true, appCode / appSecret are ignored.
-struct ClientOptions
+bool RetryDo(int maxAttempts, const RetryFunc& fn, std::string& err) noexcept
 {
-    std::string baseUrl;
-    std::string appCode;
-    std::string appSecret;
+    std::string lastErr;
+    int attempts = 0;
 
-    bool direct = false;
-    int timeoutSeconds = 30;
-};
+    while (attempts < maxAttempts)
+    {
+        ++attempts;
 
-// Per-request options. accessKey / secretKey are required per request; an
-// empty credentialIDList tells the server to return all credentials the AK is
-// authorised for.
-struct ConsumeOptions
-{
-    std::string accessKey;
-    std::string secretKey;
+        bool retryable = false;
+        lastErr.clear();
 
-    std::vector<int64_t> credentialIDList;
-    CryptoInfo crypto;
-    std::string tenantID = "default";
-};
+        if (fn(retryable, lastErr))
+        {
+            return true;
+        }
+
+        if (!retryable)
+        {
+            break;
+        }
+    }
+
+    if (attempts > 1)
+    {
+        std::ostringstream oss;
+        oss << "failed after " << attempts << " attempts, last error(" << lastErr << ")";
+        err = oss.str();
+        return false;
+    }
+
+    err = lastErr;
+
+    return false;
+}
 
 } // namespace bkkms
-
-#endif // _BK_KMS_OPTION_H_

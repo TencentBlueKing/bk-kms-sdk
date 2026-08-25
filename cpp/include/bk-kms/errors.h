@@ -24,10 +24,11 @@ namespace bkkms {
 
 // Server error codes. Callers can compare ConsumeResult.errCode / response
 // code against these constants to branch on specific failures.
-constexpr int32_t ErrCodeOK               = 0;
-constexpr int32_t ErrCodeGenericError     = 1034000;
-constexpr int32_t ErrCodeNotFound         = 1034003;
-constexpr int32_t ErrCodePermissionDenied = 1034008;
+constexpr int32_t ErrCodeOK                   = 0;
+constexpr int32_t ErrCodeGenericError         = 1034000;
+constexpr int32_t ErrCodeNotFound             = 1034003;
+constexpr int32_t ErrCodePermissionDenied     = 1034008;
+constexpr int32_t ErrCodeRequestTimeTooSkewed = 1034015;
 
 // clang-format on
 

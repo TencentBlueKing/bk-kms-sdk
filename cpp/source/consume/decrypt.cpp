@@ -13,42 +13,35 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_OPTION_H_
-#define _BK_KMS_OPTION_H_
+#include "bk-kms/client.h"
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include "bk-kms/crypto.h"
+#include "internal/crypto/crypto.h"
+#include "types/credential.h"
 
 namespace bkkms {
 
-// Client-level options. baseUrl plus (appCode, appSecret) are required for
-// APIGW mode; when direct=true, appCode / appSecret are ignored.
-struct ClientOptions
+bool DecryptEnvelope(const ConsumeEnvelope& envelope, std::vector<ConsumeResult>& out, std::string& err) noexcept
 {
-    std::string baseUrl;
-    std::string appCode;
-    std::string appSecret;
+    if (envelope.envelope.empty() || envelope.privateKey.empty())
+    {
+        err = "empty envelope or private key";
+        return false;
+    }
 
-    bool direct = false;
-    int timeoutSeconds = 30;
-};
+    std::string plaintext;
+    if (!HybridDecrypt(envelope.envelope, envelope.privateKey, plaintext, err))
+    {
+        err = "decrypt consume result error(" + err + ")";
+        return false;
+    }
 
-// Per-request options. accessKey / secretKey are required per request; an
-// empty credentialIDList tells the server to return all credentials the AK is
-// authorised for.
-struct ConsumeOptions
-{
-    std::string accessKey;
-    std::string secretKey;
+    if (!UnmarshalConsumeResults(plaintext, out))
+    {
+        err = "unmarshal consume result error";
+        return false;
+    }
 
-    std::vector<int64_t> credentialIDList;
-    CryptoInfo crypto;
-    std::string tenantID = "default";
-};
+    return true;
+}
 
 } // namespace bkkms
-
-#endif // _BK_KMS_OPTION_H_

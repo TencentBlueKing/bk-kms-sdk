@@ -59,6 +59,13 @@ struct ConsumeResult
     Credential credential;
 };
 
+// Encrypted consume payload plus the ephemeral private key from the same request.
+struct ConsumeEnvelope
+{
+    std::string envelope;
+    std::string privateKey;
+};
+
 } // namespace bkkms
 
 #endif // _BK_KMS_CREDENTIAL_H_

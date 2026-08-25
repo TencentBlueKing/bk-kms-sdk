@@ -17,6 +17,7 @@
 
 #include <cstdio>
 #include <string>
+#include <vector>
 
 int main()
 {
@@ -35,7 +36,9 @@ int main()
         return 1;
     }
 
-    // Step 2: consume credentials with the caller's AK / SK. Leaving
+    // Step 2: pull the credential envelope instead of the plaintext. The SDK
+    // generates a temporary key pair per request and returns the envelope
+    // together with the private key, without decrypting anything. Leaving
     // credentialIDList empty returns every credential the AK is authorised
     // for. Leaving crypto default falls back to RSA + AES(CBC).
     bkkms::ConsumeOptions consumeOpts;
@@ -43,14 +46,26 @@ int main()
     consumeOpts.secretKey = "your_secret_key_xxxx";
     consumeOpts.credentialIDList = {1, 2};
 
-    auto results = client->ConsumeCredential(consumeOpts, err);
-    if (!err.empty())
+    bkkms::ConsumeEnvelope envelope;
+    if (!client->ConsumeCredentialEnvelope(consumeOpts, envelope, err))
     {
-        std::fprintf(stderr, "failed to consume credential: %s\n", err.c_str());
+        std::fprintf(stderr, "failed to consume credential envelope: %s\n", err.c_str());
         return 1;
     }
 
-    // Step 3: walk each per-credential result. A non-zero errCode means that
+    // Step 3: the envelope and the private key are both opaque base64 strings, so they
+    // can be stored or handed over to another process that needs the plaintext later.
+    std::printf("envelope=%s\nprivate_key=%s\n", envelope.envelope.c_str(), envelope.privateKey.c_str());
+
+    // Step 4: decrypt locally whenever the plaintext is needed.
+    std::vector<bkkms::ConsumeResult> results;
+    if (!bkkms::DecryptEnvelope(envelope, results, err))
+    {
+        std::fprintf(stderr, "failed to decrypt credential envelope: %s\n", err.c_str());
+        return 1;
+    }
+
+    // Step 5: walk each per-credential result. A non-zero errCode means that
     // one entry failed while others may still be usable.
     for (const auto& r : results)
     {

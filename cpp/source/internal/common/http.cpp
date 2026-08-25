@@ -13,42 +13,27 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_OPTION_H_
-#define _BK_KMS_OPTION_H_
+#include "internal/common/http.h"
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include "bk-kms/crypto.h"
+#include "internal/common/rapidjson_macro.h"
 
 namespace bkkms {
 
-// Client-level options. baseUrl plus (appCode, appSecret) are required for
-// APIGW mode; when direct=true, appCode / appSecret are ignored.
-struct ClientOptions
+bool GenAuthorizationHeader(const std::string& appCode, const std::string& appSecret, std::string& out) noexcept
 {
-    std::string baseUrl;
-    std::string appCode;
-    std::string appSecret;
+    rapidjson::StringBuffer buf;
+    rapidjson::Writer<rapidjson::StringBuffer> w(buf);
 
-    bool direct = false;
-    int timeoutSeconds = 30;
-};
+    w.StartObject();
 
-// Per-request options. accessKey / secretKey are required per request; an
-// empty credentialIDList tells the server to return all credentials the AK is
-// authorised for.
-struct ConsumeOptions
-{
-    std::string accessKey;
-    std::string secretKey;
+    RAPIDJSON_SET_STRING(w, "bk_app_code", appCode);
+    RAPIDJSON_SET_STRING(w, "bk_app_secret", appSecret);
 
-    std::vector<int64_t> credentialIDList;
-    CryptoInfo crypto;
-    std::string tenantID = "default";
-};
+    w.EndObject();
+
+    out.assign(buf.GetString(), buf.GetSize());
+
+    return true;
+}
 
 } // namespace bkkms
-
-#endif // _BK_KMS_OPTION_H_

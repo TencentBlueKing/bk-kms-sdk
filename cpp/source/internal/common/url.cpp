@@ -15,6 +15,7 @@
 
 #include "internal/common/url.h"
 
+#include <cctype>
 #include <vector>
 
 namespace bkkms {

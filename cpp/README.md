@@ -29,6 +29,7 @@ make install  # 安装到 /usr/local
 
 - [快速上手](docs/quickstart.md)
 - [examples/consume](examples/consume)
+- [examples/consume_envelope](examples/consume_envelope)
 
 ## License
 

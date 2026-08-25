@@ -17,6 +17,7 @@
 
 #include <httplib.h>
 
+#include <atomic>
 #include <chrono>
 #include <sstream>
 #include <string>
@@ -24,35 +25,43 @@
 
 #include "internal/common/http.h"
 #include "internal/common/id.h"
+#include "internal/common/time.h"
 #include "internal/common/url.h"
 #include "internal/crypto/crypto.h"
 #include "internal/crypto/key.h"
+#include "internal/retry/retry.h"
 #include "internal/signature/signature.h"
 #include "types/credential.h"
 
 namespace bkkms {
 
+// max attempts of a consume credential request.
+static constexpr int ConsumeMaxAttempts = 2;
+
 class ClientImpl : public Client
 {
 public:
     explicit ClientImpl(ClientOptions opts) noexcept
-        : m_opts(std::move(opts)) {}
+        : m_opts(std::move(opts)), m_clockOffset(0) {}
 
 public:
     std::vector<ConsumeResult> ConsumeCredential(const ConsumeOptions& opts, std::string& err) noexcept override;
 
+    bool ConsumeCredentialEnvelope(const ConsumeOptions& opts, ConsumeEnvelope& out, std::string& err) noexcept override;
+
 private:
+    bool ConsumeOnce(const ConsumeOptions& opts, ConsumeEnvelope& out, bool& retryable, std::string& err) noexcept;
+
     bool SendRequest(const ConsumeOptions& opts,
                      const std::string& body, const std::string& timestamp,
                      const std::string& nonce, const std::string& signatureHex,
-                     int& statusCode, std::string& respBody, std::string& err) noexcept;
+                     int& statusCode, std::string& respBody, std::string& dateHeader, std::string& err) noexcept;
 
-    bool DecryptResponse(int statusCode, const std::string& body,
-                         const std::string& privateKeyB64, std::vector<ConsumeResult>& out,
-                         std::string& err) noexcept;
+    bool CorrectClockSkew(const std::string& date, std::string& err) noexcept;
 
 private:
     ClientOptions m_opts;
+    std::atomic<int64_t> m_clockOffset;
 };
 
 std::unique_ptr<Client> Client::New(const ClientOptions& opts, std::string& err) noexcept
@@ -91,28 +100,58 @@ std::vector<ConsumeResult> ClientImpl::ConsumeCredential(const ConsumeOptions& o
 {
     std::vector<ConsumeResult> empty;
 
+    ConsumeEnvelope envelope;
+    if (!ConsumeCredentialEnvelope(opts, envelope, err))
+    {
+        err = "consume credential envelope error(" + err + ")";
+        return empty;
+    }
+
+    std::vector<ConsumeResult> results;
+    if (!DecryptEnvelope(envelope, results, err))
+    {
+        return empty;
+    }
+
+    return results;
+}
+
+bool ClientImpl::ConsumeCredentialEnvelope(const ConsumeOptions& opts, ConsumeEnvelope& out, std::string& err) noexcept
+{
     if (opts.accessKey.empty())
     {
         err = "access key can not be empty";
-        return empty;
+        return false;
     }
 
     if (opts.secretKey.empty())
     {
         err = "secret key can not be empty";
-        return empty;
+        return false;
     }
 
     if (!ValidateHybridCrypto(opts.crypto, err))
     {
-        return empty;
+        return false;
     }
+
+    const RetryFunc consume = [this, &opts, &out](bool& retryable, std::string& onceErr) noexcept
+    {
+        return ConsumeOnce(opts, out, retryable, onceErr);
+    };
+
+    return RetryDo(ConsumeMaxAttempts, consume, err);
+}
+
+bool ClientImpl::ConsumeOnce(const ConsumeOptions& opts, ConsumeEnvelope& out, bool& retryable, std::string& err) noexcept
+{
+    retryable = false;
 
     // generate ephemeral asymmetric key pair.
     KeyPair kp;
     if (!GenerateKeyPair(opts.crypto.asymmetricType, kp, err))
     {
-        return empty;
+        return false;
     }
 
     // generate nonce (UUIDv4 without hyphens) and a Unix-second timestamp.
@@ -120,14 +159,14 @@ std::vector<ConsumeResult> ClientImpl::ConsumeCredential(const ConsumeOptions& o
     if (nonce.empty())
     {
         err = "generate nonce failed";
-        return empty;
+        return false;
     }
 
     const auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(
                             std::chrono::system_clock::now().time_since_epoch())
                             .count();
 
-    const std::string timestamp = std::to_string(nowSec);
+    const std::string timestamp = std::to_string(nowSec + m_clockOffset.load());
 
     // canonically serialise the request body.
     std::string body;
@@ -138,31 +177,66 @@ std::vector<ConsumeResult> ClientImpl::ConsumeCredential(const ConsumeOptions& o
     std::string signatureHex;
     if (!Sign(opts.secretKey, nonce, "POST", ConsumeCredentialSignaturePath, timestamp, body, signatureHex, err))
     {
-        return empty;
+        return false;
     }
 
     // send the HTTP request.
     int statusCode = 0;
     std::string respBody;
-    if (!SendRequest(opts, body, timestamp, nonce, signatureHex, statusCode, respBody, err))
+    std::string dateHeader;
+    if (!SendRequest(opts, body, timestamp, nonce, signatureHex, statusCode, respBody, dateHeader, err))
     {
-        return empty;
+        return false;
     }
 
-    // decrypt the response envelope.
-    std::vector<ConsumeResult> results;
-    if (!DecryptResponse(statusCode, respBody, kp.privateKey, results, err))
+    ConsumeCredentialResp resp;
+    if (!UnmarshalConsumeCredentialResp(respBody, resp))
     {
-        return empty;
+        std::ostringstream oss;
+        oss << "unmarshal response error, http status(" << statusCode << ")";
+        err = oss.str();
+        return false;
     }
 
-    return results;
+    if (resp.m_code == ErrCodeRequestTimeTooSkewed)
+    {
+        if (!CorrectClockSkew(dateHeader, err))
+        {
+            return false;
+        }
+
+        retryable = true;
+
+        std::ostringstream oss;
+        oss << "request time too skewed, code(" << resp.m_code << "), message(" << resp.m_message << ")";
+        err = oss.str();
+        return false;
+    }
+
+    if (statusCode != 200 || !IsOK(resp.m_code))
+    {
+        std::ostringstream oss;
+        oss << "consume credential error, http status(" << statusCode << "), code(" << resp.m_code << "), message(" << resp.m_message << ")";
+        err = oss.str();
+        return false;
+    }
+
+    if (!resp.m_hasEnvelope || resp.m_envelope.empty())
+    {
+        err = "empty envelope";
+        return false;
+    }
+
+    out.envelope = resp.m_envelope;
+    out.privateKey = kp.privateKey;
+
+    return true;
 }
 
 bool ClientImpl::SendRequest(const ConsumeOptions& opts,
                              const std::string& body, const std::string& timestamp,
                              const std::string& nonce, const std::string& signatureHex,
-                             int& statusCode, std::string& respBody, std::string& err) noexcept
+                             int& statusCode, std::string& respBody, std::string& dateHeader, std::string& err) noexcept
 {
     std::string scheme;
     std::string host;
@@ -189,14 +263,10 @@ bool ClientImpl::SendRequest(const ConsumeOptions& opts,
 
     httplib::Headers headers;
 
-    if (m_opts.direct && !opts.jwtToken.empty())
-    {
-        headers.emplace(BKAPIJWTHeader, opts.jwtToken);
-    }
-    else
+    if (!m_opts.direct)
     {
         std::string authHeader;
-        MarshalAuthorizationHeader(m_opts.appCode, m_opts.appSecret, authHeader);
+        GenAuthorizationHeader(m_opts.appCode, m_opts.appSecret, authHeader);
         headers.emplace(BKAPIAuthorizationHeader, authHeader);
     }
 
@@ -219,49 +289,31 @@ bool ClientImpl::SendRequest(const ConsumeOptions& opts,
 
     statusCode = res->status;
     respBody = std::move(res->body);
+    dateHeader = res->get_header_value(DateHeader);
 
     return true;
 }
 
-bool ClientImpl::DecryptResponse(int statusCode, const std::string& body,
-                                 const std::string& privateKeyB64, std::vector<ConsumeResult>& out,
-                                 std::string& err) noexcept
+bool ClientImpl::CorrectClockSkew(const std::string& date, std::string& err) noexcept
 {
-    ConsumeCredentialResp resp;
-    if (!UnmarshalConsumeCredentialResp(body, resp))
+    if (date.empty())
     {
-        std::ostringstream oss;
-        oss << "unmarshal response error, http status(" << statusCode << ")";
-        err = oss.str();
+        err = "empty date";
         return false;
     }
 
-    if (statusCode != 200 || !IsOK(resp.m_code))
+    std::time_t serverTime = 0;
+    if (!ParseHTTPDate(date, serverTime))
     {
-        std::ostringstream oss;
-        oss << "consume credential error, http status(" << statusCode
-            << "), code(" << resp.m_code << "), message(" << resp.m_message << ")";
-        err = oss.str();
+        err = "parse date error";
         return false;
     }
 
-    if (!resp.m_hasEnvelope)
-    {
-        err = "empty envelope";
-        return false;
-    }
+    const auto nowSec = std::chrono::duration_cast<std::chrono::seconds>(
+                            std::chrono::system_clock::now().time_since_epoch())
+                            .count();
 
-    std::string plaintext;
-    if (!HybridDecrypt(resp.m_envelope, privateKeyB64, plaintext, err))
-    {
-        return false;
-    }
-
-    if (!UnmarshalConsumeResults(plaintext, out))
-    {
-        err = "unmarshal consume result error";
-        return false;
-    }
+    m_clockOffset.store(serverTime - nowSec);
 
     return true;
 }

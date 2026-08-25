@@ -33,34 +33,38 @@ g++ -std=c++11 user_app.cc \
 
 ## 2. 创建 Client
 
+SDK 提供直连与网关两种接入模式, 由调用方类型决定: 蓝鲸平台系统接入采用直连模式, SaaS场景构建的应用采用网关模式。
+
+直连模式需开启 `direct`, `baseUrl` 指向 KMS 的 HTTP 直连端口 (`23681`), 该端口不校验 JWT, 无需提供 App Code / App Secret:
+
 ```cpp
 #include <bk-kms/client.h>
 
+bkkms::ClientOptions clientOpts;
+clientOpts.baseUrl = "http://xxxx:23681";
+clientOpts.direct  = true;
+```
+
+网关模式无需开启 `direct`, `baseUrl` 指向蓝鲸网关 APIGW 地址, 该入口由 APIGW 注入并校验 JWT, 需通过 `appCode` / `appSecret` 提供 App Code / App Secret:
+
+```cpp
 bkkms::ClientOptions clientOpts;
 clientOpts.baseUrl   = "http://xxxx/api/bk-kms/prod";
 clientOpts.appCode   = "your_app_code_xxxx";
 clientOpts.appSecret = "your_app_secret_xxxx";
 ```
 
-`baseUrl` 需指定到 KMS 网关对应环境的地址, `appCode` / `appSecret` 为调用方的应用态认证参数。
-
-| 字段              | 必填 | 默认值 | 说明                                                      |
-| ----------------- | ---- | ------ | --------------------------------------------------------- |
-| `baseUrl`         | 是   | 无     | KMS 网关地址, 如 `http://xxxx/api/bk-kms/prod`            |
-| `appCode`         | 是   | 无     | 调用方应用态认证参数 App Code                             |
-| `appSecret`       | 是   | 无     | 调用方应用态认证参数 App Secret                           |
-| `timeoutSeconds`  | 否   | `30`   | 单次请求超时时间 (秒), 有更长/更短时延要求时可覆盖        |
-| `direct`          | 否   | `false`| 不经过网关, 直连 KMS 后端服务, 该模式下无需应用态认证参数 |
-
-特殊情况下需要不经过网关直连 KMS 后端时, 可通过 `direct` 置为 `true` 开启, `baseUrl` 需指定到 KMS 的 HTTP 端口 (`23680`), 常规情况下业务接入请走网关模式:
-
-```cpp
-bkkms::ClientOptions clientOpts;
-clientOpts.baseUrl = "http://xxxx:23680";
-clientOpts.direct  = true;
-```
+| 字段              | 必填 | 默认值  | 说明                                                                           |
+| ----------------- | ---- | ------- | ------------------------------------------------------------------------------ |
+| `baseUrl`         | 是   | 无      | KMS 地址, 直连时如 `http://xxxx:23681`, 网关时如 `http://xxxx/api/bk-kms/prod` |
+| `direct`          | 否   | `false` | 设为 `true` 开启直连调用, 不经过网关, 无需JWT                                  |
+| `appCode`         | 否   | 无      | 应用态认证 App Code (直连不需要)                                               |
+| `appSecret`       | 否   | 无      | 应用态认证 App Secret (直连不需要)                                             |
+| `timeoutSeconds`  | 否   | `30`    | 单次请求超时时间 (秒), 有更长/更短时延要求时可覆盖                             |
 
 ## 3. 消费凭证
+
+### 3.1 明文消费
 
 默认使用国际算法 `RSA + AES(CBC)`:
 
@@ -69,16 +73,6 @@ bkkms::ConsumeOptions consumeOpts;
 consumeOpts.accessKey = "your_access_key_xxxx";
 consumeOpts.secretKey = "your_secret_key_xxxx";
 consumeOpts.credentialIDList = {1, 2};
-```
-
-特殊情况下选定直连模式时, 需要通过 `jwtToken` 传入 JWT token 完成直连请求认证, 常规情况下业务接入无需关心:
-
-```cpp
-bkkms::ConsumeOptions consumeOpts;
-consumeOpts.accessKey = "your_access_key_xxxx";
-consumeOpts.secretKey = "your_secret_key_xxxx";
-consumeOpts.credentialIDList = {1, 2};
-consumeOpts.jwtToken = "your_jwt_token_xxxx";
 ```
 
 需要国密时通过 `crypto` 覆盖:
@@ -110,7 +104,6 @@ consumeOpts.tenantID = "tenant_name";
 | `credentialIDList` | 否   | 空 (返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
 | `crypto`           | 否   | `RSA + AES(CBC)`  | 混合加密算法组合, 可选取值见下表                           |
 | `tenantID`         | 否   | `default`         | 目标租户 ID, 仅限多租户场景使用, 默认为 default 租户       |
-| `jwtToken`         | 否   | 无                | JWT token, 仅限直连模式使用                                |
 
 当前版本支持的 `crypto` 可选组合:
 
@@ -125,9 +118,36 @@ consumeOpts.tenantID = "tenant_name";
 - 国际算法 (默认): `RSA + AES(CBC)`
 - 国密算法: `SM2 + SM4(CBC)`
 
+### 3.2 信封消费
+
+需要密文信封而非明文时(如先落库或交由其他进程解密), 换用 `ConsumeCredentialEnvelope`, 选项与 3.1 完全一致, 网关与直连模式均适用, 返回 `ConsumeEnvelope`:
+
+```cpp
+bkkms::ConsumeEnvelope envelope;
+if (!client->ConsumeCredentialEnvelope(consumeOpts, envelope, err))
+{
+    // handle request failure
+}
+```
+
+| 字段          | 类型          | 说明                        |
+| ------------- | ------------- | --------------------------- |
+| `envelope`    | `std::string` | 信封式包裹的密文 (base64)   |
+| `privateKey`  | `std::string` | 本次临时生成的私钥 (base64) |
+
+`envelope` 与 `privateKey` 需自行保管, 需要明文时通过 `bkkms::DecryptEnvelope` 本地解密:
+
+```cpp
+std::vector<bkkms::ConsumeResult> results;
+if (!bkkms::DecryptEnvelope(envelope, results, err))
+{
+    // handle decrypt failure
+}
+```
+
 ## 4. 处理返回值
 
-`ConsumeCredential` 返回 `std::vector<bkkms::ConsumeResult>`, 遵循请求级 error + 单条 errCode 的两级错误模型:
+`ConsumeCredential` 与 `DecryptEnvelope` 均返回 `std::vector<bkkms::ConsumeResult>`, 遵循请求级 error + 单条 errCode 的两级错误模型:
 
 - `err` 非空: 请求失败, 无结果可处理;
 - `err` 为空: 请求成功, 遍历 `results`, 单条是否成功看 `errCode`。
@@ -144,12 +164,15 @@ consumeOpts.tenantID = "tenant_name";
 
 单条 `errCode` 是否成功可通过 `bkkms::IsOK(errCode)` 判断, 非 `0` 时可与下列常量对齐处理:
 
-| 常量                            | 值        | 含义         |
-| ------------------------------- | --------- | ------------ |
-| `bkkms::ErrCodeOK`              | `0`       | 成功         |
-| `bkkms::ErrCodeGenericError`    | `1034000` | 通用错误     |
-| `bkkms::ErrCodeNotFound`        | `1034003` | 资源不存在   |
-| `bkkms::ErrCodePermissionDenied`| `1034008` | 权限不足     |
+| 常量                                 | 值        | 含义             |
+| ------------------------------------ | --------- | ---------------- |
+| `bkkms::ErrCodeOK`                   | `0`       | 成功             |
+| `bkkms::ErrCodeGenericError`         | `1034000` | 通用错误         |
+| `bkkms::ErrCodeNotFound`             | `1034003` | 资源不存在       |
+| `bkkms::ErrCodePermissionDenied`     | `1034008` | 权限不足         |
+| `bkkms::ErrCodeRequestTimeTooSkewed` | `1034015` | 请求时间偏差过大 |
+
+其中 `ErrCodeRequestTimeTooSkewed` 表示本机与服务端时间偏差过大, 收到该错误, SDK 会依据响应 `Date` 自动校正时钟偏移并重试一次。
 
 ### 4.2 Credential
 
@@ -182,4 +205,5 @@ consumeOpts.tenantID = "tenant_name";
 
 ## 5. 完整示例
 
-见 [../examples/consume](../examples/consume)。
+明文消费见 [../examples/consume](../examples/consume);
+信封消费见 [../examples/consume_envelope](../examples/consume_envelope);
