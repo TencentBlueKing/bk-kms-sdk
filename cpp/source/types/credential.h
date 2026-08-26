@@ -59,10 +59,6 @@ struct ConsumeCredentialResp
 bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
                                  const CryptoInfo& crypto, const std::string& publicKeyB64, std::string& out) noexcept;
 
-// MarshalAuthorizationHeader builds the X-Bkapi-Authorization JSON payload:
-//   { "bk_app_code":"...", "bk_app_secret":"..." }
-bool MarshalAuthorizationHeader(const std::string& appCode, const std::string& appSecret, std::string& out) noexcept;
-
 // UnmarshalEnvelope parses the envelope JSON that HybridDecrypt derives from the response body.
 bool UnmarshalEnvelope(const std::string& in, Envelope& out) noexcept;
 

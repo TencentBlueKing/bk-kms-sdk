@@ -16,6 +16,8 @@
 #ifndef _BK_KMS_COMMON_HTTP_H_
 #define _BK_KMS_COMMON_HTTP_H_
 
+#include <string>
+
 namespace bkkms {
 
 // clang-format off
@@ -24,7 +26,6 @@ constexpr const char* const Version         = "v1.0.0-alpha.1";
 
 // APIGW / KMS request header names. The values are protocol-defined.
 constexpr const char* const BKAPIAuthorizationHeader = "X-Bkapi-Authorization";
-constexpr const char* const BKAPIJWTHeader           = "X-Bkapi-JWT";
 constexpr const char* const BKAPIRequestIDHeader     = "X-Bkapi-Request-Id";
 constexpr const char* const BKTenantIDHeader         = "X-Bk-Tenant-Id";
 constexpr const char* const BKKMSAKHeader            = "X-BKKMS-AK";
@@ -33,7 +34,8 @@ constexpr const char* const BKKMSNonceHeader         = "X-BKKMS-Nonce";
 constexpr const char* const BKKMSSignatureHeader     = "X-BKKMS-Signature";
 constexpr const char* const BKKMSSDKVersionHeader    = "X-BKKMS-SDK-Version";
 
-// content type header.
+// date and content type headers.
+constexpr const char* const DateHeader                 = "Date";
 constexpr const char* const ContentTypeHeader          = "Content-Type";
 constexpr const char* const ContentTypeJSONCharsetUTF8 = "application/json; charset=utf-8";
 
@@ -43,6 +45,9 @@ constexpr const char* const ConsumeCredentialAPIGWPath     = "/api/v1/consume_cr
 constexpr const char* const ConsumeCredentialDirectPath    = "/api/v1/consume/credential";
 constexpr const char* const ConsumeCredentialSignaturePath = "/api/v1/consume/credential";
 // clang-format on
+
+// GenAuthorizationHeader generates the authorization header.
+bool GenAuthorizationHeader(const std::string& appCode, const std::string& appSecret, std::string& out) noexcept;
 
 } // namespace bkkms
 

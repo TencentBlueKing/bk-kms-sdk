@@ -56,7 +56,29 @@ public:
      *         report failure via ConsumeResult.errCode.
      */
     virtual std::vector<ConsumeResult> ConsumeCredential(const ConsumeOptions& opts, std::string& err) noexcept = 0;
+
+    /**
+     * @brief ConsumeCredentialEnvelope fetches the encrypted envelope from the KMS server.
+     *
+     * @param opts per-request options.
+     * @param out  the server envelope and the ephemeral private key of this request.
+     * @param err  overall request error; non-empty on failure.
+     *
+     * @return true on success.
+     */
+    virtual bool ConsumeCredentialEnvelope(const ConsumeOptions& opts, ConsumeEnvelope& out, std::string& err) noexcept = 0;
 };
+
+/**
+ * @brief DecryptEnvelope decrypts a ConsumeEnvelope.
+ *
+ * @param envelope consume envelope.
+ * @param out      per-credential results.
+ * @param err      filled with the failure reason when the return value is false.
+ *
+ * @return true on success.
+ */
+bool DecryptEnvelope(const ConsumeEnvelope& envelope, std::vector<ConsumeResult>& out, std::string& err) noexcept;
 
 } // namespace bkkms
 

@@ -63,23 +63,6 @@ bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
     return true;
 }
 
-bool MarshalAuthorizationHeader(const std::string& appCode, const std::string& appSecret, std::string& out) noexcept
-{
-    rapidjson::StringBuffer buf;
-    rapidjson::Writer<rapidjson::StringBuffer> w(buf);
-
-    w.StartObject();
-
-    RAPIDJSON_SET_STRING(w, "bk_app_code", appCode);
-    RAPIDJSON_SET_STRING(w, "bk_app_secret", appSecret);
-
-    w.EndObject();
-
-    out.assign(buf.GetString(), buf.GetSize());
-
-    return true;
-}
-
 bool UnmarshalEnvelope(const std::string& in, Envelope& out) noexcept
 {
     rapidjson::Document doc;

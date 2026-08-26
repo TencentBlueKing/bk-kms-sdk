@@ -13,42 +13,40 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_OPTION_H_
-#define _BK_KMS_OPTION_H_
+#include "internal/common/time.h"
 
-#include <cstdint>
-#include <string>
-#include <vector>
-
-#include "bk-kms/crypto.h"
+#include <ctime>
 
 namespace bkkms {
 
-// Client-level options. baseUrl plus (appCode, appSecret) are required for
-// APIGW mode; when direct=true, appCode / appSecret are ignored.
-struct ClientOptions
+bool ParseHTTPDate(const std::string& date, std::time_t& out) noexcept
 {
-    std::string baseUrl;
-    std::string appCode;
-    std::string appSecret;
+    if (date.empty())
+    {
+        return false;
+    }
 
-    bool direct = false;
-    int timeoutSeconds = 30;
-};
+    static const char* const formats[] = {
+        "%a, %d %b %Y %H:%M:%S GMT",
+        "%A, %d-%b-%y %H:%M:%S GMT",
+        "%a %b %e %H:%M:%S %Y",
+    };
 
-// Per-request options. accessKey / secretKey are required per request; an
-// empty credentialIDList tells the server to return all credentials the AK is
-// authorised for.
-struct ConsumeOptions
-{
-    std::string accessKey;
-    std::string secretKey;
+    for (const char* format : formats)
+    {
+        std::tm tm = {};
 
-    std::vector<int64_t> credentialIDList;
-    CryptoInfo crypto;
-    std::string tenantID = "default";
-};
+        if (strptime(date.c_str(), format, &tm) == nullptr)
+        {
+            continue;
+        }
+
+        out = timegm(&tm);
+
+        return true;
+    }
+
+    return false;
+}
 
 } // namespace bkkms
-
-#endif // _BK_KMS_OPTION_H_
