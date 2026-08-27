@@ -27,11 +27,6 @@ import (
 	"github.com/TencentBlueKing/bk-kms-sdk/go/types"
 )
 
-const (
-	// ConsumeCredentialSignaturePath consume credential signature path.
-	ConsumeCredentialSignaturePath = "/api/v1/consume/credential"
-)
-
 // NewNonce creates consume credential request nonce (UUID v4 without dashes).
 func NewNonce() (string, error) {
 	id, err := common.GenUUID()
@@ -53,8 +48,6 @@ type SignContent struct {
 type ConsumeSignature struct {
 	SecretKey   string
 	Nonce       string
-	Method      string
-	URLPath     string
 	Timestamp   string
 	SignContent SignContent
 }
@@ -67,14 +60,6 @@ func (s *ConsumeSignature) Sign() (string, error) {
 
 	if s.Nonce == "" {
 		return "", errors.New("invalid nonce")
-	}
-
-	if s.Method == "" {
-		return "", errors.New("invalid http method")
-	}
-
-	if s.URLPath == "" {
-		return "", errors.New("invalid url path")
 	}
 
 	if s.Timestamp == "" {
@@ -93,7 +78,7 @@ func (s *ConsumeSignature) Sign() (string, error) {
 
 	contentHashValue := sha256.Sum256(content)
 	contentHash := hex.EncodeToString(contentHashValue[:])
-	stringToSign := strings.Join([]string{s.Method, s.URLPath, s.Timestamp, s.Nonce, contentHash}, "\n")
+	stringToSign := strings.Join([]string{s.Timestamp, s.Nonce, contentHash}, "\n")
 
 	signingKey, err := common.HMACSHA256([]byte(s.SecretKey), []byte(s.Nonce))
 	if err != nil {

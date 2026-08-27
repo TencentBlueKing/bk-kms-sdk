@@ -21,7 +21,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/common"
 	"github.com/TencentBlueKing/bk-kms-sdk/go/types"
 )
 
@@ -122,7 +121,6 @@ type consumeOptions struct {
 // newDefaultConsumeOptions returns consumeOptions filled with defaults.
 func newDefaultConsumeOptions() *consumeOptions {
 	return &consumeOptions{
-		tenantID: common.DefaultTenantID,
 		crypto: types.CryptoInfo{
 			AsymmetricType: types.CryptoTypeRSA,
 			SymmetricType:  types.CryptoTypeAES,
@@ -135,8 +133,7 @@ func newDefaultConsumeOptions() *consumeOptions {
 type ConsumeOption func(*consumeOptions)
 
 // WithTenantID sets the tenant id carried by the X-Bk-Tenant-Id header.
-// Useful for platform callers that consume credentials across multiple tenants;
-// when unset, the SDK falls back to "default" tenant.
+// When unset, the header is sent as an empty value.
 func WithTenantID(tenantID string) ConsumeOption {
 	return func(o *consumeOptions) {
 		o.tenantID = tenantID

@@ -152,8 +152,6 @@ func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (*types.
 	sign, err := (&signature.ConsumeSignature{
 		SecretKey: opts.secretKey,
 		Nonce:     nonce,
-		Method:    http.MethodPost,
-		URLPath:   signature.ConsumeCredentialSignaturePath,
 		Timestamp: timestamp,
 		SignContent: signature.SignContent{
 			CredentialIDList: req.CredentialIDList,

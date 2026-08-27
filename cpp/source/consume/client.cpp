@@ -172,10 +172,9 @@ bool ClientImpl::ConsumeOnce(const ConsumeOptions& opts, ConsumeEnvelope& out, b
     std::string body;
     MarshalConsumeCredentialReq(opts.credentialIDList, opts.crypto, kp.publicKey, body);
 
-    // two-stage HMAC-SHA256 signing. The URL path used for signing is always the
-    // direct-mode path so that gateway and direct callers hash the same bytes.
+    // two-stage HMAC-SHA256 signing (timestamp, nonce, content hash).
     std::string signatureHex;
-    if (!Sign(opts.secretKey, nonce, "POST", ConsumeCredentialSignaturePath, timestamp, body, signatureHex, err))
+    if (!Sign(opts.secretKey, nonce, timestamp, body, signatureHex, err))
     {
         return false;
     }
@@ -271,7 +270,7 @@ bool ClientImpl::SendRequest(const ConsumeOptions& opts,
     }
 
     headers.emplace(BKAPIRequestIDHeader, GenReqID());
-    headers.emplace(BKTenantIDHeader, opts.tenantID.empty() ? DefaultTenantID : opts.tenantID);
+    headers.emplace(BKTenantIDHeader, opts.tenantID);
     headers.emplace(BKKMSAKHeader, opts.accessKey);
     headers.emplace(BKKMSTimestampHeader, timestamp);
     headers.emplace(BKKMSNonceHeader, nonce);

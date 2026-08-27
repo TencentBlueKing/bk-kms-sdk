@@ -63,7 +63,7 @@ results, err := client.ConsumeCredential(context.Background(),
 )
 ```
 
-多租户环境下, 可以通过 `WithTenantID` 指定目标租户, 未设置时 SDK 默认使用 `default` 租户, 非多租户环境无需关心:
+多租户环境下, 可以通过 `WithTenantID` 指定目标租户; 未设置时传入空值。非多租户环境无需关心:
 
 ```go
 results, err := client.ConsumeCredential(context.Background(),
@@ -78,7 +78,7 @@ results, err := client.ConsumeCredential(context.Background(),
 | `WithAccessKeySecret`  | 是   | 无               | 调用方的 Access Key / Secret Key                           |
 | `WithCredentialIDList` | 否   | 空(返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
 | `WithCrypto`           | 否   | `RSA + AES(CBC)` | 混合加密算法组合, 可选取值见下表                           |
-| `WithTenantID`         | 否   | `default`        | 目标租户 ID, 仅限多租户场景使用, 默认为default租户         |
+| `WithTenantID`         | 否   | 无               | 目标租户 ID, 仅限多租户场景使用                            |
 
 当前版本支持的 `WithCrypto` 可选组合:
 

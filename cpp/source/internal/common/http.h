@@ -21,8 +21,7 @@
 namespace bkkms {
 
 // clang-format off
-constexpr const char* const DefaultTenantID = "default";
-constexpr const char* const Version         = "v1.0.0-alpha.1";
+constexpr const char* const Version = "v1.0.0-alpha.1";
 
 // APIGW / KMS request header names. The values are protocol-defined.
 constexpr const char* const BKAPIAuthorizationHeader = "X-Bkapi-Authorization";
@@ -39,11 +38,9 @@ constexpr const char* const DateHeader                 = "Date";
 constexpr const char* const ContentTypeHeader          = "Content-Type";
 constexpr const char* const ContentTypeJSONCharsetUTF8 = "application/json; charset=utf-8";
 
-// API paths. The signing URL path is always the direct-mode variant so that
-// APIGW and direct callers hash the same bytes.
-constexpr const char* const ConsumeCredentialAPIGWPath     = "/api/v1/consume_credential";
-constexpr const char* const ConsumeCredentialDirectPath    = "/api/v1/consume/credential";
-constexpr const char* const ConsumeCredentialSignaturePath = "/api/v1/consume/credential";
+// HTTP request paths.
+constexpr const char* const ConsumeCredentialAPIGWPath  = "/api/v1/consume_credential";
+constexpr const char* const ConsumeCredentialDirectPath = "/api/v1/consume/credential";
 // clang-format on
 
 // GenAuthorizationHeader generates the authorization header.

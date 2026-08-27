@@ -87,7 +87,7 @@ consumeOpts.crypto.symmetricType  = bkkms::CryptoTypeSM4;
 consumeOpts.crypto.symmetricMode  = bkkms::CryptoModeCBC;
 ```
 
-多租户环境下, 可以通过 `tenantID` 指定目标租户, 未设置时 SDK 默认使用 `default` 租户, 非多租户环境无需关心:
+多租户环境下, 可以通过 `tenantID` 指定目标租户; 未设置时传入空值。非多租户环境无需关心:
 
 ```cpp
 bkkms::ConsumeOptions consumeOpts;
@@ -103,7 +103,7 @@ consumeOpts.tenantID = "tenant_name";
 | `secretKey`        | 是   | 无                | 调用方的 Secret Key                                        |
 | `credentialIDList` | 否   | 空 (返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
 | `crypto`           | 否   | `RSA + AES(CBC)`  | 混合加密算法组合, 可选取值见下表                           |
-| `tenantID`         | 否   | `default`         | 目标租户 ID, 仅限多租户场景使用, 默认为 default 租户       |
+| `tenantID`         | 否   | 无                | 目标租户 ID, 仅限多租户场景使用                            |
 
 当前版本支持的 `crypto` 可选组合:
 

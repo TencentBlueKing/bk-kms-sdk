@@ -21,9 +21,6 @@ import (
 )
 
 const (
-	// DefaultTenantID default tenant id.
-	DefaultTenantID = "default"
-
 	// Version is the version of the sdk.
 	Version = "v1.0.0-alpha.1"
 )

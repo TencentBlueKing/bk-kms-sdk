@@ -39,9 +39,7 @@ func main() {
 	// Step 2: consume credentials with the caller's access key / secret key.
 	// Omitting WithCredentialIDList returns every credential the AK is authorised for.
 	// Omitting WithCrypto falls back to the default `RSA + AES(CBC)` hybrid envelope.
-	// Platform callers that pull credentials on behalf of different tenants can add
-	// consume.WithTenantID("some_tenant") to target a specific tenant per request;
-	// when omitted the SDK sends the "default" tenant.
+	// Multi-tenant callers can pass consume.WithTenantID; otherwise the header is sent as an empty value.
 	results, err := client.ConsumeCredential(context.Background(),
 		consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
 		consume.WithCredentialIDList(1, 2),
