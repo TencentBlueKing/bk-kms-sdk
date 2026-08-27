@@ -87,7 +87,7 @@ consumeOpts.crypto.symmetricType  = bkkms::CryptoTypeSM4;
 consumeOpts.crypto.symmetricMode  = bkkms::CryptoModeCBC;
 ```
 
-多租户环境下, 可以通过 `tenantID` 指定目标租户; 未设置时传入空值。非多租户环境无需关心:
+多租户环境下, 可以通过 `tenantID` 指定目标租户; 未设置时不携带该 header。非多租户环境无需关心:
 
 ```cpp
 bkkms::ConsumeOptions consumeOpts;

@@ -40,7 +40,7 @@ func main() {
 	// temporary key pair per request and returns the envelope together with the private key.
 	// Omitting WithCredentialIDList returns every credential the AK is authorised for.
 	// Omitting WithCrypto falls back to the default `RSA + AES(CBC)` hybrid envelope.
-	// Multi-tenant callers can pass consume.WithTenantID; otherwise the header is sent as an empty value.
+	// Multi-tenant callers can pass consume.WithTenantID; otherwise the header is not sent.
 	envelope, err := client.ConsumeCredentialEnvelope(context.Background(),
 		consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
 		consume.WithCredentialIDList(1, 2),

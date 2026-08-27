@@ -270,7 +270,10 @@ bool ClientImpl::SendRequest(const ConsumeOptions& opts,
     }
 
     headers.emplace(BKAPIRequestIDHeader, GenReqID());
-    headers.emplace(BKTenantIDHeader, opts.tenantID);
+    if (!opts.tenantID.empty())
+    {
+        headers.emplace(BKTenantIDHeader, opts.tenantID);
+    }
     headers.emplace(BKKMSAKHeader, opts.accessKey);
     headers.emplace(BKKMSTimestampHeader, timestamp);
     headers.emplace(BKKMSNonceHeader, nonce);

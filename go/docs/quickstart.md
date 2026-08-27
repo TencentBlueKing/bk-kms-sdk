@@ -63,7 +63,7 @@ results, err := client.ConsumeCredential(context.Background(),
 )
 ```
 
-多租户环境下, 可以通过 `WithTenantID` 指定目标租户; 未设置时传入空值。非多租户环境无需关心:
+多租户环境下, 可以通过 `WithTenantID` 指定目标租户; 未设置时不携带该 header。非多租户环境无需关心:
 
 ```go
 results, err := client.ConsumeCredential(context.Background(),

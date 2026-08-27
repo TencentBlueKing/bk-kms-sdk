@@ -133,7 +133,7 @@ func newDefaultConsumeOptions() *consumeOptions {
 type ConsumeOption func(*consumeOptions)
 
 // WithTenantID sets the tenant id carried by the X-Bk-Tenant-Id header.
-// When unset, the header is sent as an empty value.
+// When unset, the header is not sent.
 func WithTenantID(tenantID string) ConsumeOption {
 	return func(o *consumeOptions) {
 		o.tenantID = tenantID

@@ -231,7 +231,9 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 
 	request.Header.Set(common.ContentTypeHeader, common.ContentTypeJSONCharsetUTF8)
 	request.Header.Set(common.BKAPIRequestIDHeader, common.GenReqID())
-	request.Header.Set(common.BKTenantIDHeader, opts.tenantID)
+	if opts.tenantID != "" {
+		request.Header.Set(common.BKTenantIDHeader, opts.tenantID)
+	}
 	request.Header.Set(common.BKKMSAKHeader, opts.accessKey)
 	request.Header.Set(common.BKKMSTimestampHeader, timestamp)
 	request.Header.Set(common.BKKMSNonceHeader, nonce)
