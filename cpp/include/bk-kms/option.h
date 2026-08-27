@@ -46,7 +46,7 @@ struct ConsumeOptions
 
     std::vector<int64_t> credentialIDList;
     CryptoInfo crypto;
-    std::string tenantID = "default";
+    std::string tenantID;
 };
 
 } // namespace bkkms

@@ -22,11 +22,11 @@ namespace bkkms {
 
 // Two-stage HMAC-SHA256 signing:
 //   signingKey   = HMAC-SHA256(secretKey, nonce)
-//   stringToSign = METHOD "\n" URL_PATH "\n" TIMESTAMP "\n" NONCE "\n" SHA256_HEX(signContent)
+//   stringToSign = TIMESTAMP "\n" NONCE "\n" SHA256_HEX(signContent)
 //   signature    = HMAC-SHA256(signingKey, stringToSign)
 // Returned as a lower-case hex string.
-bool Sign(const std::string& secretKey, const std::string& nonce, const std::string& method, const std::string& urlPath,
-          const std::string& timestamp, const std::string& signContent, std::string& signature, std::string& err) noexcept;
+bool Sign(const std::string& secretKey, const std::string& nonce, const std::string& timestamp,
+          const std::string& signContent, std::string& signature, std::string& err) noexcept;
 
 } // namespace bkkms
 

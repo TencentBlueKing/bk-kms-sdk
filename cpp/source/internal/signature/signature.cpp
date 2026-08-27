@@ -19,8 +19,8 @@
 
 namespace bkkms {
 
-bool Sign(const std::string& secretKey, const std::string& nonce, const std::string& method, const std::string& urlPath,
-          const std::string& timestamp, const std::string& signContent, std::string& signature, std::string& err) noexcept
+bool Sign(const std::string& secretKey, const std::string& nonce, const std::string& timestamp,
+          const std::string& signContent, std::string& signature, std::string& err) noexcept
 {
     if (secretKey.empty())
     {
@@ -34,18 +34,6 @@ bool Sign(const std::string& secretKey, const std::string& nonce, const std::str
         return false;
     }
 
-    if (method.empty())
-    {
-        err = "invalid http method";
-        return false;
-    }
-
-    if (urlPath.empty())
-    {
-        err = "invalid url path";
-        return false;
-    }
-
     if (timestamp.empty())
     {
         err = "invalid timestamp";
@@ -55,9 +43,7 @@ bool Sign(const std::string& secretKey, const std::string& nonce, const std::str
     const std::string contentHash = HexEncode(SHA256Sum(signContent));
 
     std::string sts;
-    sts.reserve(method.size() + urlPath.size() + timestamp.size() + nonce.size() + contentHash.size() + 4);
-    sts.append(method).push_back('\n');
-    sts.append(urlPath).push_back('\n');
+    sts.reserve(timestamp.size() + nonce.size() + contentHash.size() + 2);
     sts.append(timestamp).push_back('\n');
     sts.append(nonce).push_back('\n');
     sts.append(contentHash);
