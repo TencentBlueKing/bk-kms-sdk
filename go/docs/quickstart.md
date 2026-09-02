@@ -45,7 +45,7 @@ client, err := consume.New(
 ```go
 results, err := client.ConsumeCredential(context.Background(),
     consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
-    consume.WithCredentialIDList(1, 2),
+    consume.WithCredentialNameList("credential_name_1", "credential_name_2"),
 )
 ```
 
@@ -54,7 +54,7 @@ results, err := client.ConsumeCredential(context.Background(),
 ```go
 results, err := client.ConsumeCredential(context.Background(),
     consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
-    consume.WithCredentialIDList(1, 2),
+    consume.WithCredentialNameList("credential_name_1", "credential_name_2"),
     consume.WithCrypto(types.CryptoInfo{
         AsymmetricType: types.CryptoTypeSM2,
         SymmetricType:  types.CryptoTypeSM4,
@@ -68,17 +68,17 @@ results, err := client.ConsumeCredential(context.Background(),
 ```go
 results, err := client.ConsumeCredential(context.Background(),
     consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
-    consume.WithCredentialIDList(1, 2),
+    consume.WithCredentialNameList("credential_name_1", "credential_name_2"),
     consume.WithTenantID("tenant_name"),
 )
 ```
 
-| 选项                   | 必填 | 默认值           | 说明                                                       |
-| ---------------------- | ---- | ---------------- | ---------------------------------------------------------- |
-| `WithAccessKeySecret`  | 是   | 无               | 调用方的 Access Key / Secret Key                           |
-| `WithCredentialIDList` | 否   | 空(返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
-| `WithCrypto`           | 否   | `RSA + AES(CBC)` | 混合加密算法组合, 可选取值见下表                           |
-| `WithTenantID`         | 否   | 无               | 目标租户 ID, 仅限多租户场景使用                            |
+| 选项                     | 必填 | 默认值           | 说明                                                               |
+| ------------------------ | ---- | ---------------- | ------------------------------------------------------------------ |
+| `WithTenantID`           | 否   | 无               | 目标租户 ID, 仅限多租户场景使用                                    |
+| `WithAccessKeySecret`    | 是   | 无               | 调用方的 Access Key / Secret Key                                   |
+| `WithCredentialNameList` | 否   | 空(返回全部凭证) | 要消费的凭证名称列表, 不指定则返回该 AK 唯一绑定凭证组下的全部凭证 |
+| `WithCrypto`             | 否   | `RSA + AES(CBC)` | 混合加密算法组合, 可选取值见下表                                   |
 
 当前版本支持的 `WithCrypto` 可选组合:
 
@@ -100,7 +100,7 @@ results, err := client.ConsumeCredential(context.Background(),
 ```go
 envelope, err := client.ConsumeCredentialEnvelope(context.Background(),
     consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
-    consume.WithCredentialIDList(1, 2),
+    consume.WithCredentialNameList("credential_name_1", "credential_name_2"),
 )
 ```
 
@@ -131,15 +131,15 @@ results, err := consume.DecryptEnvelope(envelope)
 | `ErrMsg`       | `string`             | 失败原因                  |
 | `Credential`   | `*types.Credential`  | 成功时返回, 失败为 `nil`  |
 
-单条 `ErrCode` 常量位于 `types` 包, 可用 `types.IsOK(errCode)` 快速判断:
+单条 `ErrCode` 常量位于 `types` 包, 可用 `types.IsOK(errCode)` 快速判断。常用如下, 完整错误码见 [`types/errors.go`](../types/errors.go):
 
-| 常量                            | 值        | 含义     |
-| ------------------------------- | --------- | -------- |
+| 常量                                  | 值        | 含义             |
+| ------------------------------------- | --------- | ---------------- |
 | `types.ErrCodeOK`                     | `0`       | 成功             |
 | `types.ErrCodeGenericError`           | `1034000` | 系统错误         |
 | `types.ErrCodeNotFound`               | `1034003` | 未找到           |
 | `types.ErrCodePermissionDenied`       | `1034008` | 无权限           |
-| `types.ErrCodeRequestTimeTooSkewed`   | `1034015` | 请求时间偏差过大 |
+| `types.ErrCodeRequestTimeTooSkewed`   | `1034016` | 请求时间偏差过大 |
 
 其中 `ErrCodeRequestTimeTooSkewed` 表示本机与服务端时间偏差过大, 收到该错误, SDK 会依据响应 `Date` 自动校正时钟偏移并重试一次。
 

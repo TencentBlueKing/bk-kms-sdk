@@ -39,9 +39,10 @@ func NewNonce() (string, error) {
 
 // SignContent signature content.
 type SignContent struct {
-	CredentialIDList []int64          `json:"credential_id_list"`
-	Crypto           types.CryptoInfo `json:"crypto"`
-	PublicKey        string           `json:"public_key"`
+	CredentialIDList   []int64          `json:"credential_id_list"`
+	CredentialNameList []string         `json:"credential_name_list"`
+	Crypto             types.CryptoInfo `json:"crypto"`
+	PublicKey          string           `json:"public_key"`
 }
 
 // ConsumeSignature consume signature.
@@ -66,9 +67,14 @@ func (s *ConsumeSignature) Sign() (string, error) {
 		return "", errors.New("invalid timestamp")
 	}
 
-	// empty list signs as [], not null.
+	// empty credential id lists sign as [], not null.
 	if s.SignContent.CredentialIDList == nil {
 		s.SignContent.CredentialIDList = []int64{}
+	}
+
+	// empty credential name lists sign as [], not null.
+	if s.SignContent.CredentialNameList == nil {
+		s.SignContent.CredentialNameList = []string{}
 	}
 
 	content, err := json.Marshal(s.SignContent)

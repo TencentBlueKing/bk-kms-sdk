@@ -28,7 +28,12 @@ constexpr int32_t ErrCodeOK                   = 0;
 constexpr int32_t ErrCodeGenericError         = 1034000;
 constexpr int32_t ErrCodeNotFound             = 1034003;
 constexpr int32_t ErrCodePermissionDenied     = 1034008;
-constexpr int32_t ErrCodeRequestTimeTooSkewed = 1034015;
+constexpr int32_t ErrCodeAccessKeyDisabled    = 1034011;
+constexpr int32_t ErrCodeAccessKeyExpired     = 1034012;
+constexpr int32_t ErrCodeAccessKeyNotBound    = 1034013;
+constexpr int32_t ErrCodeNonceAlreadyUsed     = 1034014;
+constexpr int32_t ErrCodeSignatureMismatch    = 1034015;
+constexpr int32_t ErrCodeRequestTimeTooSkewed = 1034016;
 
 // clang-format on
 

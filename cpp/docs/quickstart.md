@@ -72,7 +72,7 @@ clientOpts.appSecret = "your_app_secret_xxxx";
 bkkms::ConsumeOptions consumeOpts;
 consumeOpts.accessKey = "your_access_key_xxxx";
 consumeOpts.secretKey = "your_secret_key_xxxx";
-consumeOpts.credentialIDList = {1, 2};
+consumeOpts.credentialNameList = {"credential_name_1", "credential_name_2"};
 ```
 
 需要国密时通过 `crypto` 覆盖:
@@ -81,7 +81,7 @@ consumeOpts.credentialIDList = {1, 2};
 bkkms::ConsumeOptions consumeOpts;
 consumeOpts.accessKey = "your_access_key_xxxx";
 consumeOpts.secretKey = "your_secret_key_xxxx";
-consumeOpts.credentialIDList = {1, 2};
+consumeOpts.credentialNameList = {"credential_name_1", "credential_name_2"};
 consumeOpts.crypto.asymmetricType = bkkms::CryptoTypeSM2;
 consumeOpts.crypto.symmetricType  = bkkms::CryptoTypeSM4;
 consumeOpts.crypto.symmetricMode  = bkkms::CryptoModeCBC;
@@ -91,19 +91,19 @@ consumeOpts.crypto.symmetricMode  = bkkms::CryptoModeCBC;
 
 ```cpp
 bkkms::ConsumeOptions consumeOpts;
+consumeOpts.tenantID = "tenant_name";
 consumeOpts.accessKey = "your_access_key_xxxx";
 consumeOpts.secretKey = "your_secret_key_xxxx";
-consumeOpts.credentialIDList = {1, 2};
-consumeOpts.tenantID = "tenant_name";
+consumeOpts.credentialNameList = {"credential_name_1", "credential_name_2"};
 ```
 
-| 字段               | 必填 | 默认值            | 说明                                                       |
-| ------------------ | ---- | ----------------- | ---------------------------------------------------------- |
-| `accessKey`        | 是   | 无                | 调用方的 Access Key                                        |
-| `secretKey`        | 是   | 无                | 调用方的 Secret Key                                        |
-| `credentialIDList` | 否   | 空 (返回全部凭证) | 要消费的凭证 ID 列表, 不指定则返回该 AK 授权范围内全部凭证 |
-| `crypto`           | 否   | `RSA + AES(CBC)`  | 混合加密算法组合, 可选取值见下表                           |
-| `tenantID`         | 否   | 无                | 目标租户 ID, 仅限多租户场景使用                            |
+| 字段                 | 必填 | 默认值            | 说明                                                               |
+| -------------------- | ---- | ----------------- | ------------------------------------------------------------------ |
+| `tenantID`           | 否   | 无                | 目标租户 ID, 仅限多租户场景使用                                    |
+| `accessKey`          | 是   | 无                | 调用方的 Access Key                                                |
+| `secretKey`          | 是   | 无                | 调用方的 Secret Key                                                |
+| `credentialNameList` | 否   | 空 (返回全部凭证) | 要消费的凭证名称列表, 不指定则返回该 AK 唯一绑定凭证组下的全部凭证 |
+| `crypto`             | 否   | `RSA + AES(CBC)`  | 混合加密算法组合, 可选取值见下表                                   |
 
 当前版本支持的 `crypto` 可选组合:
 
@@ -162,7 +162,7 @@ if (!bkkms::DecryptEnvelope(envelope, results, err))
 | `hasCredential` | `bool`              | `true` 时 `credential` 有效, 否则表示无值  |
 | `credential`    | `bkkms::Credential` | 凭证明文, 仅在 `hasCredential == true` 有效 |
 
-单条 `errCode` 是否成功可通过 `bkkms::IsOK(errCode)` 判断, 非 `0` 时可与下列常量对齐处理:
+单条 `errCode` 是否成功可通过 `bkkms::IsOK(errCode)` 判断。常用如下, 完整错误码见 [`bk-kms/errors.h`](../include/bk-kms/errors.h):
 
 | 常量                                 | 值        | 含义             |
 | ------------------------------------ | --------- | ---------------- |
@@ -170,7 +170,7 @@ if (!bkkms::DecryptEnvelope(envelope, results, err))
 | `bkkms::ErrCodeGenericError`         | `1034000` | 通用错误         |
 | `bkkms::ErrCodeNotFound`             | `1034003` | 资源不存在       |
 | `bkkms::ErrCodePermissionDenied`     | `1034008` | 权限不足         |
-| `bkkms::ErrCodeRequestTimeTooSkewed` | `1034015` | 请求时间偏差过大 |
+| `bkkms::ErrCodeRequestTimeTooSkewed` | `1034016` | 请求时间偏差过大 |
 
 其中 `ErrCodeRequestTimeTooSkewed` 表示本机与服务端时间偏差过大, 收到该错误, SDK 会依据响应 `Date` 自动校正时钟偏移并重试一次。
 

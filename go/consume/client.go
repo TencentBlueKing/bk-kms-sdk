@@ -142,9 +142,10 @@ func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (*types.
 	}
 
 	req := types.ConsumeCredentialReq{
-		CredentialIDList: opts.credentialIDList,
-		Crypto:           opts.crypto,
-		PublicKey:        keyPair.PublicKey(),
+		CredentialIDList:   []int64{},
+		CredentialNameList: opts.credentialNameList,
+		Crypto:             opts.crypto,
+		PublicKey:          keyPair.PublicKey(),
 	}
 
 	timestamp := strconv.FormatInt(time.Now().Unix()+c.clockOffset.Load(), 10)
@@ -154,9 +155,10 @@ func (c *client) consumeOnce(ctx context.Context, opts *consumeOptions) (*types.
 		Nonce:     nonce,
 		Timestamp: timestamp,
 		SignContent: signature.SignContent{
-			CredentialIDList: req.CredentialIDList,
-			Crypto:           req.Crypto,
-			PublicKey:        req.PublicKey,
+			CredentialIDList:   req.CredentialIDList,
+			CredentialNameList: req.CredentialNameList,
+			Crypto:             req.Crypto,
+			PublicKey:          req.PublicKey,
 		},
 	}).Sign()
 
@@ -201,6 +203,10 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 
 	if req.CredentialIDList == nil {
 		req.CredentialIDList = []int64{}
+	}
+
+	if req.CredentialNameList == nil {
+		req.CredentialNameList = []string{}
 	}
 
 	body, err := json.Marshal(req)

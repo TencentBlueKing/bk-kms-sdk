@@ -55,8 +55,8 @@ struct ConsumeCredentialResp
 // MarshalConsumeCredentialReq serialises the request body sent to
 // /consume_credential. Field order is fixed - server signature depends on
 // the exact byte sequence:
-//   credential_id_list -> crypto{asymmetric_type -> symmetric_type -> symmetric_mode} -> public_key
-bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
+//   credential_id_list -> credential_name_list -> crypto{asymmetric_type -> symmetric_type -> symmetric_mode} -> public_key
+bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList, const std::vector<std::string>& credentialNameList,
                                  const CryptoInfo& crypto, const std::string& publicKeyB64, std::string& out) noexcept;
 
 // UnmarshalEnvelope parses the envelope JSON that HybridDecrypt derives from the response body.

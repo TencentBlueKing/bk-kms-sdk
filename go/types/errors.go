@@ -28,8 +28,23 @@ const (
 	// ErrCodePermissionDenied permission denied.
 	ErrCodePermissionDenied = 1034008
 
+	// ErrCodeAccessKeyDisabled access key disabled.
+	ErrCodeAccessKeyDisabled = 1034011
+
+	// ErrCodeAccessKeyExpired access key expired.
+	ErrCodeAccessKeyExpired = 1034012
+
+	// ErrCodeAccessKeyNotBound access key not bound to credential group.
+	ErrCodeAccessKeyNotBound = 1034013
+
+	// ErrCodeNonceAlreadyUsed nonce already used.
+	ErrCodeNonceAlreadyUsed = 1034014
+
+	// ErrCodeSignatureMismatch signature mismatch.
+	ErrCodeSignatureMismatch = 1034015
+
 	// ErrCodeRequestTimeTooSkewed request time too skewed.
-	ErrCodeRequestTimeTooSkewed = 1034015
+	ErrCodeRequestTimeTooSkewed = 1034016
 )
 
 // IsOK checks whether the error code means success.

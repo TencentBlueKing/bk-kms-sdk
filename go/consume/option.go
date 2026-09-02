@@ -31,8 +31,8 @@ const (
 
 // clientOptions holds the internal state configured via ClientOption.
 type clientOptions struct {
-	direct     bool
 	baseURL    string
+	direct     bool
 	appCode    string
 	appSecret  string
 	timeout    time.Duration
@@ -72,18 +72,18 @@ func (o *clientOptions) validate() error {
 // ClientOption customizes options accepted by New.
 type ClientOption func(*clientOptions)
 
+// WithBaseURL sets the base URL of the KMS apigw or apiserver.
+func WithBaseURL(url string) ClientOption {
+	return func(o *clientOptions) {
+		o.baseURL = strings.TrimRight(url, "/")
+	}
+}
+
 // WithDirect sets the client to connect directly to the KMS backend service.
 // In this mode, app code / secret are not required.
 func WithDirect() ClientOption {
 	return func(o *clientOptions) {
 		o.direct = true
-	}
-}
-
-// WithBaseURL sets the base URL of the KMS apigw or apiserver.
-func WithBaseURL(url string) ClientOption {
-	return func(o *clientOptions) {
-		o.baseURL = strings.TrimRight(url, "/")
 	}
 }
 
@@ -111,11 +111,11 @@ func WithClient(client *http.Client) ClientOption {
 
 // consumeOptions holds the internal state configured via ConsumeOption.
 type consumeOptions struct {
-	tenantID         string
-	accessKey        string
-	secretKey        string
-	credentialIDList []int64
-	crypto           types.CryptoInfo
+	tenantID           string
+	accessKey          string
+	secretKey          string
+	credentialNameList []string
+	crypto             types.CryptoInfo
 }
 
 // newDefaultConsumeOptions returns consumeOptions filled with defaults.
@@ -148,10 +148,11 @@ func WithAccessKeySecret(accessKey, secretKey string) ConsumeOption {
 	}
 }
 
-// WithCredentialIDList sets the credential id list.
-func WithCredentialIDList(idList ...int64) ConsumeOption {
+// WithCredentialNameList sets the credential name list.
+// When empty, the server returns all credentials in the AK's uniquely bound credential group.
+func WithCredentialNameList(nameList ...string) ConsumeOption {
 	return func(o *consumeOptions) {
-		o.credentialIDList = idList
+		o.credentialNameList = nameList
 	}
 }
 
