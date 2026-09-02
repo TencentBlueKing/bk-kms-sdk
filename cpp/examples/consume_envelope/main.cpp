@@ -39,12 +39,12 @@ int main()
     // Step 2: pull the credential envelope instead of the plaintext. The SDK
     // generates a temporary key pair per request and returns the envelope
     // together with the private key, without decrypting anything. Leaving
-    // credentialIDList empty returns every credential the AK is authorised
-    // for. Leaving crypto default falls back to RSA + AES(CBC).
+    // credentialNameList empty returns every credential in the AK's uniquely bound credential group. 
+    // Leaving crypto default falls back to RSA + AES(CBC).
     bkkms::ConsumeOptions consumeOpts;
     consumeOpts.accessKey = "your_access_key_xxxx";
     consumeOpts.secretKey = "your_secret_key_xxxx";
-    consumeOpts.credentialIDList = {1, 2};
+    consumeOpts.credentialNameList = {"credential_name_1", "credential_name_2"};
 
     bkkms::ConsumeEnvelope envelope;
     if (!client->ConsumeCredentialEnvelope(consumeOpts, envelope, err))

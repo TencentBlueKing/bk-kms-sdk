@@ -16,7 +16,6 @@
 #ifndef _BK_KMS_OPTION_H_
 #define _BK_KMS_OPTION_H_
 
-#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -29,24 +28,25 @@ namespace bkkms {
 struct ClientOptions
 {
     std::string baseUrl;
+    bool direct = false;
+
     std::string appCode;
     std::string appSecret;
 
-    bool direct = false;
     int timeoutSeconds = 30;
 };
 
-// Per-request options. accessKey / secretKey are required per request; an
-// empty credentialIDList tells the server to return all credentials the AK is
-// authorised for.
+// Per-request options. accessKey / secretKey are required per request;
+// when an empty credentialNameList is provided, the server returns all credentials in the AK's uniquely bound credential group.
 struct ConsumeOptions
 {
+    std::string tenantID;
+
     std::string accessKey;
     std::string secretKey;
 
-    std::vector<int64_t> credentialIDList;
+    std::vector<std::string> credentialNameList;
     CryptoInfo crypto;
-    std::string tenantID;
 };
 
 } // namespace bkkms

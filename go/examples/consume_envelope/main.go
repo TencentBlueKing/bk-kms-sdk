@@ -38,12 +38,12 @@ func main() {
 
 	// Step 2: pull the credential envelope instead of the plaintext. The SDK generates a
 	// temporary key pair per request and returns the envelope together with the private key.
-	// Omitting WithCredentialIDList returns every credential the AK is authorised for.
+	// Omitting WithCredentialNameList returns every credential in the AK's uniquely bound credential group.
 	// Omitting WithCrypto falls back to the default `RSA + AES(CBC)` hybrid envelope.
 	// Multi-tenant callers can pass consume.WithTenantID; otherwise the header is not sent.
 	envelope, err := client.ConsumeCredentialEnvelope(context.Background(),
 		consume.WithAccessKeySecret("your_access_key_xxxx", "your_secret_key_xxxx"),
-		consume.WithCredentialIDList(1, 2),
+		consume.WithCredentialNameList("credential_name_1", "credential_name_2"),
 	)
 	if err != nil {
 		log.Fatalf("failed to consume credential envelope: %+v", err)

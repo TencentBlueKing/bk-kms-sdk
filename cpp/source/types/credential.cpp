@@ -19,11 +19,11 @@
 
 namespace bkkms {
 
-bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
+bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList, const std::vector<std::string>& credentialNameList,
                                  const CryptoInfo& crypto, const std::string& publicKeyB64, std::string& out) noexcept
 {
     // Fixed field order (must not be changed - server signature depends on this exact byte sequence):
-    //   credential_id_list -> crypto{asymmetric_type -> symmetric_type -> symmetric_mode} -> public_key
+    //   credential_id_list -> credential_name_list -> crypto{asymmetric_type -> symmetric_type -> symmetric_mode} -> public_key
     rapidjson::StringBuffer buf;
     rapidjson::Writer<rapidjson::StringBuffer> w(buf);
 
@@ -40,6 +40,18 @@ bool MarshalConsumeCredentialReq(const std::vector<int64_t>& credentialIDList,
     }
 
     // credential_id_list end.
+    w.EndArray();
+
+    // credential_name_list start.
+    w.Key("credential_name_list");
+    w.StartArray();
+
+    for (const std::string& name : credentialNameList)
+    {
+        w.String(name);
+    }
+
+    // credential_name_list end.
     w.EndArray();
 
     // crypto start.

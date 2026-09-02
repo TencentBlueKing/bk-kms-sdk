@@ -170,7 +170,7 @@ bool ClientImpl::ConsumeOnce(const ConsumeOptions& opts, ConsumeEnvelope& out, b
 
     // canonically serialise the request body.
     std::string body;
-    MarshalConsumeCredentialReq(opts.credentialIDList, opts.crypto, kp.publicKey, body);
+    MarshalConsumeCredentialReq(std::vector<int64_t>{}, opts.credentialNameList, opts.crypto, kp.publicKey, body);
 
     // two-stage HMAC-SHA256 signing (timestamp, nonce, content hash).
     std::string signatureHex;

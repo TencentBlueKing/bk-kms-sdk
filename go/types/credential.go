@@ -39,9 +39,10 @@ func (typ CredentialType) String() string {
 
 // ConsumeCredentialReq consume credential request.
 type ConsumeCredentialReq struct {
-	CredentialIDList []int64    `json:"credential_id_list"`
-	Crypto           CryptoInfo `json:"crypto"`
-	PublicKey        string     `json:"public_key"`
+	CredentialIDList   []int64    `json:"credential_id_list"`
+	CredentialNameList []string   `json:"credential_name_list"`
+	Crypto             CryptoInfo `json:"crypto"`
+	PublicKey          string     `json:"public_key"`
 }
 
 // AuthInfo auth info.
