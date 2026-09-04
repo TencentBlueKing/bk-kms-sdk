@@ -180,10 +180,8 @@ bool GenerateSM2KeyPair(std::string& publicKeyB64, std::string& privateKeyB64,
         return false;
     }
 
-    // Set the alias explicitly so subsequent EVP_PKEY_encrypt / decrypt use
-    // the SM2 code path rather than generic EC.
-    EVP_PKEY_set_alias_type(pkey, EVP_PKEY_SM2);
-
+    // No alias here. It would write the SM2 OID as the SPKI algorithm instead
+    // of id-ecPublicKey, which peers reading the public key cannot parse.
     BIO* pubBio = BIO_new(BIO_s_mem());
     bool pubOk = pubBio != nullptr && PEM_write_bio_PUBKEY(pubBio, pkey) == 1;
     std::string pubPem = pubOk ? BIOToString(pubBio) : std::string{};
