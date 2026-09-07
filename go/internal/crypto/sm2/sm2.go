@@ -16,12 +16,15 @@
 package sm2
 
 import (
+	"crypto/ecdsa"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/pem"
 	"fmt"
 
-	"github.com/tjfoc/gmsm/sm2"
-	"github.com/tjfoc/gmsm/x509"
+	"github.com/emmansun/gmsm/pkcs8"
+	"github.com/emmansun/gmsm/sm2"
+	"github.com/emmansun/gmsm/smx509"
 )
 
 // GenerateKeyPair generates sm2 key pair.
@@ -31,15 +34,17 @@ func GenerateKeyPair() (string, string, error) {
 		return "", "", fmt.Errorf("generate sm2 key pair error(%+v)", err)
 	}
 
-	publicKeyPEM, err := x509.WritePublicKeyToPem(&privateKeyObj.PublicKey)
+	publicKeyDER, err := smx509.MarshalPKIXPublicKey(&privateKeyObj.PublicKey)
 	if err != nil {
 		return "", "", fmt.Errorf("marshal sm2 public key error(%+v)", err)
 	}
+	publicKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyDER})
 
-	privateKeyPEM, err := x509.WritePrivateKeyToPem(privateKeyObj, nil)
+	privateKeyDER, err := pkcs8.MarshalPrivateKey(privateKeyObj, nil, nil)
 	if err != nil {
 		return "", "", fmt.Errorf("marshal sm2 private key error(%+v)", err)
 	}
+	privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyDER})
 
 	return base64.StdEncoding.EncodeToString(publicKeyPEM),
 		base64.StdEncoding.EncodeToString(privateKeyPEM), nil
@@ -52,12 +57,22 @@ func SM2Encrypt(plaintext, publicKeyBase64 string) (string, error) {
 		return "", fmt.Errorf("base64 decode public key error(%+v)", err)
 	}
 
-	pubKey, err := x509.ReadPublicKeyFromPem(publicKey)
+	block, _ := pem.Decode(publicKey)
+	if block == nil {
+		return "", fmt.Errorf("decode public key pem error")
+	}
+
+	pubKey, err := smx509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return "", fmt.Errorf("parse public key error(%+v)", err)
 	}
 
-	ciphertext, err := pubKey.EncryptAsn1([]byte(plaintext), rand.Reader)
+	sm2PubKey, ok := pubKey.(*ecdsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("public key is not a sm2 public key")
+	}
+
+	ciphertext, err := sm2.EncryptASN1(rand.Reader, sm2PubKey, []byte(plaintext))
 	if err != nil {
 		return "", fmt.Errorf("encrypt error(%+v)", err)
 	}
@@ -77,12 +92,17 @@ func SM2Decrypt(encodedText, privateKeyBase64 string) (string, error) {
 		return "", fmt.Errorf("base64 decode private key error(%+v)", err)
 	}
 
-	privKey, err := x509.ReadPrivateKeyFromPem(privateKey, nil)
+	block, _ := pem.Decode(privateKey)
+	if block == nil {
+		return "", fmt.Errorf("decode private key pem error")
+	}
+
+	privKey, err := pkcs8.ParsePKCS8PrivateKeySM2(block.Bytes)
 	if err != nil {
 		return "", fmt.Errorf("parse private key error(%+v)", err)
 	}
 
-	plaintext, err := privKey.DecryptAsn1(ciphertext)
+	plaintext, err := privKey.Decrypt(rand.Reader, ciphertext, sm2.ASN1DecrypterOpts)
 	if err != nil {
 		return "", fmt.Errorf("decrypt error(%+v)", err)
 	}

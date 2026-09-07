@@ -24,7 +24,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/tjfoc/gmsm/sm4"
+	"github.com/emmansun/gmsm/sm4"
 )
 
 func sm4PKCS7Padding(data []byte, blockSize int) []byte {
