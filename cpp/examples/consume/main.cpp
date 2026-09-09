@@ -21,11 +21,12 @@
 int main()
 {
     // Step 1: platform integration uses direct mode to KMS backend server (23681).
-    // Direct mode does not need appCode / appSecret.
+    // Direct mode needs appCode.
     // SaaS via API GW: keep direct=false, set baseUrl to the API GW prefix, and fill in appCode / appSecret.
     bkkms::ClientOptions clientOpts;
     clientOpts.baseUrl = "http://xxxx:23681";
     clientOpts.direct  = true;
+    clientOpts.appCode = "your_app_code_xxxx";
 
     std::string err;
     auto client = bkkms::Client::New(clientOpts, err);

@@ -35,7 +35,7 @@ g++ -std=c++11 user_app.cc \
 
 SDK 提供直连与网关两种接入模式, 由调用方类型决定: 蓝鲸平台系统接入采用直连模式, SaaS场景构建的应用采用网关模式。
 
-直连模式需开启 `direct`, `baseUrl` 指向 KMS 的 HTTP 直连端口 (`23681`), 该端口不校验 JWT, 无需提供 App Code / App Secret:
+直连模式需开启 `direct`, `baseUrl` 指向 KMS 的 HTTP 直连端口 (`23681`), 该端口不校验 JWT, 无需 App Secret, 但须填写 `appCode`, 作为身份标识写入 `X-Bk-AppCode`:
 
 ```cpp
 #include <bk-kms/client.h>
@@ -43,6 +43,7 @@ SDK 提供直连与网关两种接入模式, 由调用方类型决定: 蓝鲸平
 bkkms::ClientOptions clientOpts;
 clientOpts.baseUrl = "http://xxxx:23681";
 clientOpts.direct  = true;
+clientOpts.appCode = "your_app_code_xxxx";
 ```
 
 网关模式无需开启 `direct`, `baseUrl` 指向蓝鲸网关 APIGW 地址, 该入口由 APIGW 注入并校验 JWT, 需通过 `appCode` / `appSecret` 提供 App Code / App Secret:
@@ -54,13 +55,13 @@ clientOpts.appCode   = "your_app_code_xxxx";
 clientOpts.appSecret = "your_app_secret_xxxx";
 ```
 
-| 字段              | 必填 | 默认值  | 说明                                                                           |
-| ----------------- | ---- | ------- | ------------------------------------------------------------------------------ |
-| `baseUrl`         | 是   | 无      | KMS 地址, 直连时如 `http://xxxx:23681`, 网关时如 `http://xxxx/api/bk-kms/prod` |
-| `direct`          | 否   | `false` | 设为 `true` 开启直连调用, 不经过网关, 无需JWT                                  |
-| `appCode`         | 否   | 无      | 应用态认证 App Code (直连不需要)                                               |
-| `appSecret`       | 否   | 无      | 应用态认证 App Secret (直连不需要)                                             |
-| `timeoutSeconds`  | 否   | `30`    | 单次请求超时时间 (秒), 有更长/更短时延要求时可覆盖                             |
+| 字段             | 必填   | 默认值  | 说明                                                                           |
+| ---------------- | ------ | ------- | ------------------------------------------------------------------------------ |
+| `baseUrl`        | 是     | 无      | KMS 地址, 直连时如 `http://xxxx:23681`, 网关时如 `http://xxxx/api/bk-kms/prod` |
+| `direct`         | 否     | `false` | 设为 `true` 开启直连调用, 不经过网关, 无需JWT                                  |
+| `appCode`        | 是     | 无      | 应用身份; 直连写入 `X-Bk-AppCode`, 网关随 `X-Bkapi-Authorization` 提供         |
+| `appSecret`      | 网关是 | 无      | 网关应用态认证 App Secret (直连不需要)                                         |
+| `timeoutSeconds` | 否     | `30`    | 单次请求超时时间 (秒), 有更长/更短时延要求时可覆盖                             |
 
 ## 3. 消费凭证
 

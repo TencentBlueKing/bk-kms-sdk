@@ -52,14 +52,12 @@ func (o *clientOptions) validate() error {
 		return errors.New("invalid client options, base url cannot be empty")
 	}
 
-	if !o.direct {
-		if strings.TrimSpace(o.appCode) == "" {
-			return errors.New("invalid client options, app code cannot be empty")
-		}
+	if strings.TrimSpace(o.appCode) == "" {
+		return errors.New("invalid client options, app code cannot be empty")
+	}
 
-		if strings.TrimSpace(o.appSecret) == "" {
-			return errors.New("invalid client options, app secret cannot be empty")
-		}
+	if !o.direct && strings.TrimSpace(o.appSecret) == "" {
+		return errors.New("invalid client options, app secret cannot be empty")
 	}
 
 	if o.timeout <= 0 {
@@ -80,17 +78,22 @@ func WithBaseURL(url string) ClientOption {
 }
 
 // WithDirect sets the client to connect directly to the KMS backend service.
-// In this mode, app code / secret are not required.
 func WithDirect() ClientOption {
 	return func(o *clientOptions) {
 		o.direct = true
 	}
 }
 
-// WithAppCodeSecret sets the app code and app secret.
-func WithAppCodeSecret(appCode, appSecret string) ClientOption {
+// WithAppCode sets the app code.
+func WithAppCode(appCode string) ClientOption {
 	return func(o *clientOptions) {
 		o.appCode = appCode
+	}
+}
+
+// WithAppSecret sets the app secret for APIGW mode.
+func WithAppSecret(appSecret string) ClientOption {
+	return func(o *clientOptions) {
 		o.appSecret = appSecret
 	}
 }

@@ -226,7 +226,9 @@ func (c *client) sendRequest(ctx context.Context, opts *consumeOptions,
 		return 0, nil, nil, fmt.Errorf("new request error(%+v)", err)
 	}
 
-	if !c.opts.direct {
+	if c.opts.direct {
+		request.Header.Set(common.BKAppCodeHeader, c.opts.appCode)
+	} else {
 		authorization, err := common.GenAuthorizationHeader(c.opts.appCode, c.opts.appSecret)
 		if err != nil {
 			return 0, nil, nil, err

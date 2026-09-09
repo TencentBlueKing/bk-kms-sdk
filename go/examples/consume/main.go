@@ -26,11 +26,12 @@ import (
 
 func main() {
 	// Step 1: platform integration uses direct mode to KMS backend server (23681).
-	// Direct mode does not need AppCode / AppSecret.
-	// SaaS via API GW: omit WithDirect, set BaseURL to the API GW prefix, and pass consume.WithAppCodeSecret(...).
+	// Direct mode needs AppCode.
+	// SaaS via API GW: omit WithDirect, set BaseURL to the API GW prefix, and pass consume.WithAppCode / consume.WithAppSecret.
 	client, err := consume.New(
 		consume.WithBaseURL("http://xxxx:23681"),
 		consume.WithDirect(),
+		consume.WithAppCode("your_app_code_xxxx"),
 	)
 	if err != nil {
 		log.Fatalf("failed to create new consume client: %+v", err)
