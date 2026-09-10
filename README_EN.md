@@ -16,6 +16,7 @@ BlueKing Key Management Service (KMS) is the credential system of the BlueKing p
 * [Integration Guide (In Chinese)](docs/integration.md)
 * [golang-sdk](go/README.md)
 * [cpp-sdk](cpp/README.md)
+* [python-sdk](python/README.md)
 
 ## Features
 
@@ -27,6 +28,7 @@ BlueKing Key Management Service (KMS) is the credential system of the BlueKing p
 
 * [Go SDK quickstart (In Chinese)](go/docs/quickstart.md)
 * [CPP SDK quickstart (In Chinese)](cpp/docs/quickstart.md)
+* [Python SDK quickstart (In Chinese)](python/README.md)
 
 ## Roadmap
 
