@@ -10,31 +10,34 @@ go get github.com/TencentBlueKing/bk-kms-sdk/go
 
 SDK 提供直连与网关两种接入模式, 由调用方类型决定: 蓝鲸平台系统接入采用直连模式, SaaS场景构建的应用采用网关模式。
 
-直连模式需开启 `WithDirect`, `BaseURL` 指向 KMS 的 HTTP 直连端口 (`23681`), 该端口不校验 JWT, 无需提供 App Code / App Secret:
+直连模式需开启 `WithDirect`, `BaseURL` 指向 KMS 的 HTTP 直连端口 (`23681`), 该端口不校验 JWT, 无需 App Secret, 但须通过 `WithAppCode` 提供 App Code, 作为身份标识写入 `X-Bk-AppCode`:
 
 ```go
 client, err := consume.New(
     consume.WithBaseURL("http://xxxx:23681"),
     consume.WithDirect(),
+    consume.WithAppCode("your_app_code_xxxx"),
 )
 ```
 
-网关模式无需开启 `WithDirect`, `BaseURL` 指向蓝鲸网关 APIGW 地址, 该入口由 APIGW 注入并校验 JWT, 需通过 `WithAppCodeSecret` 提供 App Code / App Secret:
+网关模式无需开启 `WithDirect`, `BaseURL` 指向蓝鲸网关 APIGW 地址, 该入口由 APIGW 注入并校验 JWT, 需通过 `WithAppCode` / `WithAppSecret` 提供 App Code / App Secret:
 
 ```go
 client, err := consume.New(
     consume.WithBaseURL("http://xxxx/api/bk-kms/prod"),
-    consume.WithAppCodeSecret("your_app_code_xxxx", "your_app_secret_xxxx"),
+    consume.WithAppCode("your_app_code_xxxx"),
+    consume.WithAppSecret("your_app_secret_xxxx"),
 )
 ```
 
-| 选项                | 必填 | 默认值             | 说明                                                                           |
-| ------------------- | ---- | ------------------ | ------------------------------------------------------------------------------ |
-| `WithBaseURL`       | 是   | 无                 | KMS 地址, 直连时如 `http://xxxx:23681`, 网关时如 `http://xxxx/api/bk-kms/prod` |
-| `WithDirect`        | 否   | 关闭               | 开启直连调用, 不经过网关, 无需JWT                                              |
-| `WithAppCodeSecret` | 否   | 无                 | 应用态认证 App Code / App Secret (直连不需要)                                  |
-| `WithTimeout`       | 否   | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖                                  |
-| `WithClient`        | 否   | 内置 `http.Client` | 自定义 `http.Client`                                                           |
+| 选项            | 必填   | 默认值             | 说明                                                                               |
+| --------------- | ------ | ------------------ | ---------------------------------------------------------------------------------- |
+| `WithBaseURL`   | 是     | 无                 | KMS 地址, 直连模式如 `http://xxxx:23681`, 网关模式如 `http://xxxx/api/bk-kms/prod` |
+| `WithDirect`    | 否     | 关闭               | 开启直连调用, 不经过网关, 无需JWT                                                  |
+| `WithAppCode`   | 是     | 无                 | 应用身份; 直连模式写入 `X-Bk-AppCode`, 网关模式随 `X-Bkapi-Authorization` 提供     |
+| `WithAppSecret` | 网关是 | 无                 | 网关应用态认证 App Secret (直连不需要)                                             |
+| `WithTimeout`   | 否     | `30s`              | 单次请求超时时间, 有更长/更短时延要求时可覆盖                                      |
+| `WithClient`    | 否     | 内置 `http.Client` | 自定义 `http.Client`                                                               |
 
 ## 3. 消费凭证
 

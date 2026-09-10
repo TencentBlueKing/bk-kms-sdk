@@ -72,19 +72,16 @@ std::unique_ptr<Client> Client::New(const ClientOptions& opts, std::string& err)
         return nullptr;
     }
 
-    if (!opts.direct)
+    if (opts.appCode.empty())
     {
-        if (opts.appCode.empty())
-        {
-            err = "invalid client options, app code cannot be empty";
-            return nullptr;
-        }
+        err = "invalid client options, app code cannot be empty";
+        return nullptr;
+    }
 
-        if (opts.appSecret.empty())
-        {
-            err = "invalid client options, app secret cannot be empty";
-            return nullptr;
-        }
+    if (!opts.direct && opts.appSecret.empty())
+    {
+        err = "invalid client options, app secret cannot be empty";
+        return nullptr;
     }
 
     if (opts.timeoutSeconds <= 0)
@@ -261,8 +258,11 @@ bool ClientImpl::SendRequest(const ConsumeOptions& opts,
     cli.set_keep_alive(true);
 
     httplib::Headers headers;
-
-    if (!m_opts.direct)
+    if (m_opts.direct)
+    {
+        headers.emplace(BKAppCodeHeader, m_opts.appCode);
+    }
+    else
     {
         std::string authHeader;
         GenAuthorizationHeader(m_opts.appCode, m_opts.appSecret, authHeader);

@@ -26,6 +26,9 @@ const (
 )
 
 const (
+	// BKAppCodeHeader blueking app code header.
+	BKAppCodeHeader = "X-Bk-AppCode"
+
 	// BKAPIAuthorizationHeader blueking apigw authorization header.
 	BKAPIAuthorizationHeader = "X-Bkapi-Authorization"
 

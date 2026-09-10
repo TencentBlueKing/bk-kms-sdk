@@ -24,6 +24,7 @@ namespace bkkms {
 constexpr const char* const Version = "v1.0.0-alpha.1";
 
 // APIGW / KMS request header names. The values are protocol-defined.
+constexpr const char* const BKAppCodeHeader          = "X-Bk-AppCode";
 constexpr const char* const BKAPIAuthorizationHeader = "X-Bkapi-Authorization";
 constexpr const char* const BKAPIRequestIDHeader     = "X-Bkapi-Request-Id";
 constexpr const char* const BKTenantIDHeader         = "X-Bk-Tenant-Id";

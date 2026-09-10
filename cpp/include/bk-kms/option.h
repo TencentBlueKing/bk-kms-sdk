@@ -23,8 +23,8 @@
 
 namespace bkkms {
 
-// Client-level options. baseUrl plus (appCode, appSecret) are required for
-// APIGW mode; when direct=true, appCode / appSecret are ignored.
+// Client-level options. baseUrl and appCode are always required.
+// APIGW mode also requires appSecret.
 struct ClientOptions
 {
     std::string baseUrl;
