@@ -21,8 +21,8 @@
 
 基于 K8S ServiceAccount 的可信身份从存储中消费凭证，并同步/轮转到业务侧，支持两种集成方式：
 
-- **Agent Injector**：以 Sidecar 方式将密文挂载为文件;
 - **ESO（External Secrets Operator）**：将密文同步为 K8S Secret;
+- **Agent Injector**：以 Sidecar 方式将密文挂载为文件;
 
 ### 消费层
 
@@ -32,6 +32,8 @@
 - **文件消费**：凭证以文件形式挂载，应用运行时解密使用;
 
 ## ESO（External Secrets Operator）凭证消费
+
+ESO 是 K8S 上主流的外部密钥同步组件，通过 Operator 持续将外部密钥系统中的凭证同步为原生 K8S Secret。集成时以业务 Pod 的 ServiceAccount 为可信身份，经 Kubernetes Auth 认证连接 OpenBao，由 ExternalSecret 声明式地拉取指定凭证并生成 Secret，再按需以环境变量或文件形式注入业务容器。凭证同步与轮转由 ESO 依据刷新周期自动完成，业务侧仅消费标准 K8S Secret，无侵入、可复用平台既有的 Secret 消费能力。
 
 **0. 业务 ServiceAccount —— 访问 OpenBao 的可信身份: **
 
@@ -75,7 +77,7 @@ metadata:
   name: app-mysql-credential
   namespace: app-prod
 spec:
-  refreshInterval: "1h"
+  refreshInterval: "1h"                 # 轮转周期: ESO 按此间隔周期性重新拉取 OpenBao 凭证并更新 Secret，实现凭证自动轮转
   secretStoreRef:
     name: openbao-store
     kind: SecretStore
@@ -86,12 +88,12 @@ spec:
   data:
     - secretKey: privateKey
       remoteRef:
-        key: default/my-scope/mysql        # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
-        property: private_key              # 蓝鲸 KMS 托管的 OpenBAO 凭证私钥字段名, 约定为 'private_key'
+        key: default/my-scope/mysql     # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
+        property: private_key           # 蓝鲸 KMS 托管的 OpenBAO 凭证私钥字段名, 约定为 'private_key'
     - secretKey: envelope
       remoteRef:
-        key: default/my-scope/mysql        # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
-        property: envelope                 # 蓝鲸 KMS 托管的 OpenBAO 凭证信封字段名, 约定为 'envelope'
+        key: default/my-scope/mysql     # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
+        property: envelope              # 蓝鲸 KMS 托管的 OpenBAO 凭证信封字段名, 约定为 'envelope'
 ```
 
 **3. Deployment —— Pod 以 SA 运行，凭证挂载为文件: **
@@ -137,3 +139,77 @@ spec:
 ```
 
 如上所示，依据 K8S ServiceAccount 使用 ESO 方案实现业务凭证的注入, 业务 POD 内将会得到凭证对应的密文文件和私钥变量，使用 KMS SDK 中的解密函数即可得到明文。
+
+> **轮转说明**：ESO 依据 `refreshInterval` 周期性重新拉取 OpenBao 凭证并更新 K8S Secret，实现自动轮转。需注意轮转后的生效方式：以文件形式挂载的凭证（如 `envelope`）会由 kubelet 自动刷新到卷中，业务无需重启；而以环境变量形式注入的凭证（如 `privateKey`）在容器启动时即固化，Secret 更新后不会自动生效，需重启 Pod 方可加载新值。
+
+## Agent Injector Sidecar 凭证消费
+
+OpenBao Agent Injector 通过 K8S Mutating Webhook 拦截带有约定注解（annotations）的 Pod，自动为其注入一个 Agent Sidecar 容器。Sidecar 以 Pod 的 ServiceAccount 为可信身份认证连接 OpenBao，拉取指定凭证并按模板渲染为文件，写入业务容器共享的内存卷（`/vault/secrets`）。相较 ESO 同步生成 K8S Secret 的方式，Agent Injector 无需落地 Secret，凭证仅驻留内存卷；Sidecar 会周期性重新渲染文件实现自动轮转。
+
+> **说明**：Agent Injector 的注入形态为文件渲染，不支持将凭证注入为环境变量，因此 `private_key` 与 `envelope` 均以文件形式落到共享内存卷中，由业务应用读取文件后消费。如需以环境变量形式注入，请使用 ESO 方案。
+
+**0. 业务 ServiceAccount —— 访问 OpenBao 的可信身份: **
+
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-prod-sa
+  namespace: app-prod
+```
+
+**1. Deployment —— 通过注解声明凭证注入，Sidecar 将凭证渲染为文件: **
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: app-server
+  namespace: app-prod
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: app-server
+  template:
+    metadata:
+      labels:
+        app: app-server
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"                                                         # 开启 Agent Injector 注入，Injector 据此为 Pod 注入 Agent Sidecar
+        vault.hashicorp.com/role: "app-prod-reader"                                                      # 认证角色，对应 OpenBao 中为业务 SA 绑定的 kubernetes auth role
+        vault.hashicorp.com/service: "https://openbao.bk-kms.svc:8200"                                   # 蓝鲸 KMS 托管的 OpenBAO 服务地址
+        vault.hashicorp.com/agent-inject-template-static-secret-render-interval: "1h"                    # 轮转周期: KV v2 属非租约密钥，Sidecar 按此间隔重新渲染文件实现自动轮转 (不配置时默认 5m)
+        vault.hashicorp.com/agent-inject-secret-mysql-private-key: "secret/data/default/my-scope/mysql"  # 声明要注入的凭证私钥文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
+        vault.hashicorp.com/agent-inject-template-mysql-private-key: |
+          {{- with secret "secret/data/default/my-scope/mysql" -}}
+          {{ .Data.data.private_key }}
+          {{- end -}}
+        vault.hashicorp.com/agent-inject-secret-mysql-envelope: "secret/data/default/my-scope/mysql"     # 声明要注入的凭证信封文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
+        vault.hashicorp.com/agent-inject-template-mysql-envelope: |
+          {{- with secret "secret/data/default/my-scope/mysql" -}}
+          {{ .Data.data.envelope }}
+          {{- end -}}
+    spec:
+      serviceAccountName: app-prod-sa
+      containers:
+        - name: app
+          image: your-registry/app-server:v1.0.0
+          # 业务容器无需额外挂载配置，Injector 会自动挂载共享内存卷到 /vault/secrets
+          # 应用运行时直接读取 /vault/secrets/mysql-private-key 与 /vault/secrets/mysql-envelope
+```
+
+如上所示，依据 K8S ServiceAccount 使用 Agent Injector 方案实现业务凭证的注入，Injector 会自动为业务 Pod 注入 Agent Sidecar，将凭证对应的密文文件（`envelope`）和私钥文件（`private_key`）渲染到共享内存卷 `/vault/secrets` 下，业务容器直接读取文件，使用 KMS SDK 中的解密函数即可得到明文。
+
+> **轮转说明**：蓝鲸 KMS 凭证存储于 KV v2，属非租约（静态）密钥，Sidecar 会按 `static-secret-render-interval` 指定的间隔（未配置时默认 5m）周期性重新渲染文件，实现自动轮转。由于凭证以文件形式落到内存卷，卷内容更新后业务下次读取文件即可获得新值，无需重启 Pod。如需在渲染更新后触发业务动作（如通知应用 reload），可配合 `vault.hashicorp.com/agent-inject-command-<name>` 注解执行命令。
+
+## 第三方组件凭证消费
+
+前述 ESO 与 Agent Injector 方案面向可集成 KMS SDK 的业务应用，凭证以密文信封（`envelope`）+ 私钥（`private_key`）形式下发，由 SDK 在运行时完成二次解密得到明文。而对于无法接入 KMS SDK 的第三方组件（如数据库、中间件、开源系统等），KMS 支持以**明文形式**直接下发凭证：此时凭证的 `private_key` 字段为空，`envelope` 字段直接存放凭证明文，组件挂载后无需二次解密即可直接消费。
+
+该模式对注入层无特殊要求，ESO 与 Agent Injector 两种方案均可使用，区别仅在于消费的凭证内容为明文而非密文信封：
+
+- **ESO 方案**：`ExternalSecret` 中 `envelope` 字段（`property: envelope`）同步到 K8S Secret 后即为凭证明文，第三方组件通过 `secretKeyRef` 或挂载文件的方式直接消费，无需引入 KMS SDK；由于 `private_key` 为空，可省略对应的 `secretKey` 项。
+- **Agent Injector 方案**：模板渲染出的 `envelope` 文件（`/vault/secrets/*-envelope`）内容即为凭证明文，第三方组件直接读取文件消费即可；同样无需注入 `private_key` 文件。
+
+> **提示**：明文下发意味着凭证在存储同步与挂载环节均以明文形态存在，安全性依赖 K8S Secret 的访问控制、内存卷隔离及传输链路加密。该模式仅用于无法集成 KMS SDK 的第三方组件；对于可自主解密的业务应用，仍推荐使用密文信封 + SDK 二次解密的方式，以获得端到端的明文保护。
