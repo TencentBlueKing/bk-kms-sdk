@@ -13,6 +13,7 @@ BlueKing Key Management Service (KMS) is the credential system of the BlueKing p
 
 ## Overview
 
+* [Integration Guide (In Chinese)](docs/integration.md)
 * [golang-sdk](go/README.md)
 * [cpp-sdk](cpp/README.md)
 

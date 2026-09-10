@@ -13,6 +13,7 @@
 
 ## Overview
 
+* [集成方案](docs/integration.md)
 * [golang-sdk](go/README.md)
 * [cpp-sdk](cpp/README.md)
 
