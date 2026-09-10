@@ -1,6 +1,6 @@
 # BK-KMS Python SDK 设计与协议
 
-本文描述当前 Python 实现的模块职责、协议约束和验证边界。安装与调用示例见 [Python SDK README](../README.md)，settings 配置见 [Django 集成](django.md)，固定向量来源见 [fixtures 说明](../tests/fixtures/README.md)。
+本文面向 SDK 维护者，描述当前 Python 实现的模块职责、协议约束和验证边界。维护规则见 [AGENTS.md](../AGENTS.md)。普通开发者的安装与调用示例见 [Python SDK README](../README.md)，settings 配置见 [Django 集成](django.md)，固定向量来源见 [fixtures 说明](../tests/fixtures/README.md)。
 
 ## 范围与依赖
 

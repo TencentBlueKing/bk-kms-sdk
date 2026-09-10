@@ -2,6 +2,12 @@
 
 This file applies to every file under `python/`. It is the maintenance contract for the BK-KMS Python SDK. Read it together with the repository-level instructions, and follow the more specific rule when they differ.
 
+## Documentation audiences
+
+- `README.md` and `docs/django.md` are for ordinary application developers using the SDK. Focus on installation, configuration, usage examples, and actionable troubleshooting; do not assume knowledge of SDK internals.
+- `docs/design.md` and `AGENTS.md` are for SDK maintainers. Keep implementation details, protocol rationale, maintenance constraints, and verification workflows in these documents.
+- When updating documentation, explain public behavior and usage limits in the developer guides; put the internal reasoning and maintenance requirements in the maintainer documents. Ordinary developers should not need to read maintainer documents to integrate the SDK.
+
 ## Project purpose and boundaries
 
 `bk-kms-sdk` is the synchronous Python client for consuming credentials from BlueKing KMS. It supports API Gateway and direct KMS access, signs requests with Access Key / Secret Key, and decrypts the returned hybrid-encryption envelope locally.
