@@ -15,6 +15,7 @@
 
 * [golang-sdk](go/README.md)
 * [cpp-sdk](cpp/README.md)
+* [python-sdk](python/README.md)
 
 ## Features
 
@@ -26,6 +27,7 @@
 
 * [Go SDK 快速上手](go/docs/quickstart.md)
 * [CPP SDK 快速上手](cpp/docs/quickstart.md)
+* [Python SDK 快速上手](python/README.md)
 
 ## Roadmap
 
