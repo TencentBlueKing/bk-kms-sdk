@@ -146,7 +146,7 @@ spec:
 
 OpenBao Agent Injector 通过 K8S Mutating Webhook 拦截带有约定注解（annotations）的 Pod，自动为其注入一个 Agent Sidecar 容器。Sidecar 以 Pod 的 ServiceAccount 为可信身份认证连接 OpenBao，拉取指定凭证并按模板渲染为文件，写入业务容器共享的内存卷（`/vault/secrets`）。相较 ESO 同步生成 K8S Secret 的方式，Agent Injector 无需落地 Secret，凭证仅驻留内存卷；Sidecar 会周期性重新渲染文件实现自动轮转。
 
-> **说明**：Agent Injector 的注入形态为文件渲染，不支持将凭证注入为环境变量，因此 `private_key` 与 `envelope` 均以文件形式落到共享内存卷中，由业务应用读取文件后消费。如需以环境变量形式注入，请使用 ESO 方案。
+> **说明**：Agent Injector 的注入形态为文件渲染，Sidecar 将 `private_key` 与 `envelope` 渲染到共享内存卷 `/vault/secrets` 中，由业务应用读取文件后消费。如业务需要以环境变量形式使用私钥，可参考文末「私钥以环境变量形式消费（可选）」的做法。
 
 **0. 业务 ServiceAccount —— 访问 OpenBao 的可信身份: **
 
@@ -202,6 +202,31 @@ spec:
 如上所示，依据 K8S ServiceAccount 使用 Agent Injector 方案实现业务凭证的注入，Injector 会自动为业务 Pod 注入 Agent Sidecar，将凭证对应的密文文件（`envelope`）和私钥文件（`private_key`）渲染到共享内存卷 `/vault/secrets` 下，业务容器直接读取文件，使用 KMS SDK 中的解密函数即可得到明文。
 
 > **轮转说明**：蓝鲸 KMS 凭证存储于 KV v2，属非租约（静态）密钥，Sidecar 会按 `static-secret-render-interval` 指定的间隔（未配置时默认 5m）周期性重新渲染文件，实现自动轮转。由于凭证以文件形式落到内存卷，卷内容更新后业务下次读取文件即可获得新值，无需重启 Pod。如需在渲染更新后触发业务动作（如通知应用 reload），可配合 `vault.hashicorp.com/agent-inject-command-<name>` 注解执行命令。
+
+### 私钥以环境变量形式消费（可选）
+
+Agent Injector 默认将私钥渲染为文件供业务读取。如业务侧确需以**环境变量**形式使用私钥，可将私钥模板渲染为 `export KEY=...` 格式的 env 文件，再由业务容器启动时 `source` 加载为环境变量：
+
+```yaml
+      annotations:
+        # ... 省略认证、轮转等注解 ...
+        # 将私钥渲染为可 source 的 env 文件: /vault/secrets/mysql-env
+        vault.hashicorp.com/agent-inject-secret-mysql-env: "secret/data/default/my-scope/mysql"
+        vault.hashicorp.com/agent-inject-template-mysql-env: |
+          {{- with secret "secret/data/default/my-scope/mysql" -}}
+          export MYSQL_PRIVATE_KEY="{{ .Data.data.private_key }}"
+          {{- end -}}
+    spec:
+      serviceAccountName: app-prod-sa
+      containers:
+        - name: app
+          image: your-registry/app-server:v1.0.0
+          command: ["/bin/sh", "-c"]
+          # 启动时 source env 文件将私钥加载为环境变量, 再拉起业务进程
+          args: ["source /vault/secrets/mysql-env && exec /app/app-server"]
+```
+
+> **注意**：该方式仅是在文件的基础上「额外」把私钥导入了一份到环境变量，`/vault/secrets/mysql-env` 文件依然存在于内存卷中并不会消失。如业务不希望私钥以文件形态留存，可在 `source` 之后自行删除该文件再拉起业务进程，例如：`args: ["source /vault/secrets/mysql-env && rm -f /vault/secrets/mysql-env && exec /app/app-server"]`。需注意文件删除后，凭证轮转时该 env 文件虽会被 Sidecar 重新渲染，但业务进程不会自动重新 `source`，因此该做法更适用于不依赖私钥热轮转的场景。
 
 ## 第三方组件凭证消费
 
