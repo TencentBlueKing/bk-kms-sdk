@@ -13,17 +13,30 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_COMMON_TIME_H_
-#define _BK_KMS_COMMON_TIME_H_
+// Package decrypt decrypts hybrid envelopes.
+package decrypt
 
-#include <ctime>
-#include <string>
+import (
+	"errors"
+	"fmt"
 
-namespace bkkms {
+	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto"
+)
 
-// ParseHTTPDate parses an HTTP Date header into Unix seconds.
-bool ParseHTTPDate(const std::string& date, std::time_t& out) noexcept;
+// Decrypt decrypts a hybrid envelope with private key.
+func Decrypt(envelope, privateKey string) (string, error) {
+	if envelope == "" {
+		return "", errors.New("empty envelope")
+	}
 
-} // namespace bkkms
+	if privateKey == "" {
+		return "", errors.New("empty private key")
+	}
 
-#endif // _BK_KMS_COMMON_TIME_H_
+	plaintext, err := crypto.HybridDecrypt(envelope, privateKey)
+	if err != nil {
+		return "", fmt.Errorf("hybrid decrypt: %w", err)
+	}
+
+	return plaintext, nil
+}

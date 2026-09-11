@@ -24,21 +24,6 @@
 
 namespace bkkms {
 
-static constexpr int RSAKeyBits = 2048;
-
-static std::string BIOToString(BIO* bio) noexcept
-{
-    char* data = nullptr;
-    long len = BIO_get_mem_data(bio, &data);
-
-    if (len <= 0 || data == nullptr)
-    {
-        return {};
-    }
-
-    return std::string(data, static_cast<size_t>(len));
-}
-
 // LoadRSAPublicKeyFromB64PEM parses a base64(PEM) public key. It first tries
 // PEM_read_bio_PUBKEY (covers PKIX / SubjectPublicKeyInfo), then falls back
 // to legacy PKCS1 "RSA PUBLIC KEY" blocks.
@@ -156,93 +141,6 @@ static bool SetupRSAOAEPSha256(EVP_PKEY_CTX* ctx, std::string& err) noexcept
         err = "rsa set mgf1 md failed";
         return false;
     }
-
-    return true;
-}
-
-bool GenerateRSAKeyPair(std::string& publicKeyB64, std::string& privateKeyB64,
-                        std::string& err) noexcept
-{
-    EVP_PKEY* pkey = nullptr;
-    EVP_PKEY_CTX* ctx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
-    if (ctx == nullptr)
-    {
-        err = "create rsa keygen ctx failed";
-        return false;
-    }
-
-    bool ok = false;
-
-    do
-    {
-        if (EVP_PKEY_keygen_init(ctx) <= 0)
-        {
-            err = "rsa keygen init failed";
-            break;
-        }
-
-        if (EVP_PKEY_CTX_set_rsa_keygen_bits(ctx, RSAKeyBits) <= 0)
-        {
-            err = "rsa keygen set bits failed";
-            break;
-        }
-
-        if (EVP_PKEY_keygen(ctx, &pkey) <= 0 || pkey == nullptr)
-        {
-            err = "rsa keygen failed";
-            break;
-        }
-
-        ok = true;
-
-    } while (false);
-
-    EVP_PKEY_CTX_free(ctx);
-
-    if (!ok)
-    {
-        EVP_PKEY_free(pkey);
-        return false;
-    }
-
-    // Public key: PEM PKIX (SubjectPublicKeyInfo).
-    BIO* pubBio = BIO_new(BIO_s_mem());
-    bool pubOk = pubBio != nullptr && PEM_write_bio_PUBKEY(pubBio, pkey) == 1;
-    std::string pubPem = pubOk ? BIOToString(pubBio) : std::string{};
-    if (pubBio)
-    {
-        BIO_free(pubBio);
-    }
-
-    // Private key: PEM PKCS1 ("RSA PRIVATE KEY").
-    BIO* privBio = BIO_new(BIO_s_mem());
-    bool privOk = false;
-    if (privBio != nullptr)
-    {
-        RSA* rsa = EVP_PKEY_get1_RSA(pkey);
-        if (rsa != nullptr)
-        {
-            privOk = PEM_write_bio_RSAPrivateKey(privBio, rsa, nullptr, nullptr, 0, nullptr, nullptr) == 1;
-            RSA_free(rsa);
-        }
-    }
-
-    std::string privPem = privOk ? BIOToString(privBio) : std::string{};
-    if (privBio)
-    {
-        BIO_free(privBio);
-    }
-
-    EVP_PKEY_free(pkey);
-
-    if (!pubOk || !privOk)
-    {
-        err = "encode rsa pem failed";
-        return false;
-    }
-
-    publicKeyB64 = Base64Encode(pubPem);
-    privateKeyB64 = Base64Encode(privPem);
 
     return true;
 }

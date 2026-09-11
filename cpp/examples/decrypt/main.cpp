@@ -13,49 +13,25 @@
  * of the project delivered to anyone in the future.
  */
 
-package common
+#include <bk-kms/decrypt.h>
 
-import (
-	"strings"
-)
+#include <cstdio>
+#include <string>
 
-// JoinURL joins the given segments with a single '/' between them, collapsing
-// any redundant '/' at the boundaries. The scheme separator of the first
-// segment (e.g. "http://") is preserved. An empty segment is skipped.
-func JoinURL(segments ...string) string {
-	if len(segments) == 0 {
-		return ""
-	}
+int main()
+{
+    const std::string envelope = "your_envelope";
+    const std::string privateKey = "your_private_key";
 
-	var scheme string
-	first := segments[0]
+    std::string plaintext;
+    std::string err;
+    if (!bkkms::Decrypt(envelope, privateKey, plaintext, err))
+    {
+        std::fprintf(stderr, "decrypt: %s\n", err.c_str());
+        return 1;
+    }
 
-	if idx := strings.Index(first, "://"); idx > 0 {
-		scheme = first[:idx+3]
-		segments = append([]string{first[idx+3:]}, segments[1:]...)
-	}
+    std::printf("%s\n", plaintext.c_str());
 
-	parts := make([]string, 0, len(segments))
-
-	for i, seg := range segments {
-		if seg == "" {
-			continue
-		}
-
-		switch i {
-		case 0:
-			seg = strings.TrimRight(seg, "/")
-
-		default:
-			seg = strings.Trim(seg, "/")
-		}
-
-		if seg == "" {
-			continue
-		}
-
-		parts = append(parts, seg)
-	}
-
-	return scheme + strings.Join(parts, "/")
+    return 0;
 }

@@ -24,7 +24,7 @@ import (
 	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto/rsa"
 	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto/sm2"
 	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/crypto/sm4"
-	"github.com/TencentBlueKing/bk-kms-sdk/go/types"
+	"github.com/TencentBlueKing/bk-kms-sdk/go/internal/types"
 )
 
 // SymmetricDecrypt decrypt in symmetric algorithm.

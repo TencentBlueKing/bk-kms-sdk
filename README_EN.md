@@ -20,9 +20,7 @@ BlueKing Key Management Service (KMS) is the credential system of the BlueKing p
 
 ## Features
 
-- **Credential consuming**: fetch credentials via Access Key / Secret Key, without persisting sensitive data on the business side;
-- **Secure transport**: request signing + hybrid-encryption envelope for secure transport of sensitive information (default `RSA + AES`, also supports Chinese cryptography `SM2 + SM4`);
-- **Automatic negotiation**: key negotiation and envelope unsealing are handled transparently by the SDK, keeping the authentication flow simple for callers;
+- **Envelope decryption**: basic runtime decrypt for credential consumption
 
 ## Getting started
 

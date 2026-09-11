@@ -13,42 +13,34 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_OPTION_H_
-#define _BK_KMS_OPTION_H_
+#include "bk-kms/decrypt.h"
 
-#include <string>
-#include <vector>
-
-#include "bk-kms/crypto.h"
+#include "internal/crypto/crypto.h"
 
 namespace bkkms {
 
-// Client-level options. baseUrl and appCode are always required.
-// APIGW mode also requires appSecret.
-struct ClientOptions
+bool Decrypt(const std::string& envelope, const std::string& privateKey,
+             std::string& plaintext, std::string& err) noexcept
 {
-    std::string baseUrl;
-    bool direct = false;
+    if (envelope.empty())
+    {
+        err = "empty envelope";
+        return false;
+    }
 
-    std::string appCode;
-    std::string appSecret;
+    if (privateKey.empty())
+    {
+        err = "empty private key";
+        return false;
+    }
 
-    int timeoutSeconds = 30;
-};
+    if (!HybridDecrypt(envelope, privateKey, plaintext, err))
+    {
+        err = "hybrid decrypt: " + err;
+        return false;
+    }
 
-// Per-request options. accessKey / secretKey are required per request;
-// when an empty credentialNameList is provided, the server returns all credentials in the AK's uniquely bound credential group.
-struct ConsumeOptions
-{
-    std::string tenantID;
-
-    std::string accessKey;
-    std::string secretKey;
-
-    std::vector<std::string> credentialNameList;
-    CryptoInfo crypto;
-};
+    return true;
+}
 
 } // namespace bkkms
-
-#endif // _BK_KMS_OPTION_H_

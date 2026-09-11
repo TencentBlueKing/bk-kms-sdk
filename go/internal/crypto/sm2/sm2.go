@@ -27,29 +27,6 @@ import (
 	"github.com/emmansun/gmsm/smx509"
 )
 
-// GenerateKeyPair generates sm2 key pair.
-func GenerateKeyPair() (string, string, error) {
-	privateKeyObj, err := sm2.GenerateKey(rand.Reader)
-	if err != nil {
-		return "", "", fmt.Errorf("generate sm2 key pair error(%+v)", err)
-	}
-
-	publicKeyDER, err := smx509.MarshalPKIXPublicKey(&privateKeyObj.PublicKey)
-	if err != nil {
-		return "", "", fmt.Errorf("marshal sm2 public key error(%+v)", err)
-	}
-	publicKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PUBLIC KEY", Bytes: publicKeyDER})
-
-	privateKeyDER, err := pkcs8.MarshalPrivateKey(privateKeyObj, nil, nil)
-	if err != nil {
-		return "", "", fmt.Errorf("marshal sm2 private key error(%+v)", err)
-	}
-	privateKeyPEM := pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: privateKeyDER})
-
-	return base64.StdEncoding.EncodeToString(publicKeyPEM),
-		base64.StdEncoding.EncodeToString(privateKeyPEM), nil
-}
-
 // SM2Encrypt encrypt data in sm2 mode.
 func SM2Encrypt(plaintext, publicKeyBase64 string) (string, error) {
 	publicKey, err := base64.StdEncoding.DecodeString(publicKeyBase64)

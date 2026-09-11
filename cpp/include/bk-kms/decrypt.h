@@ -13,19 +13,24 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_COMMON_ID_H_
-#define _BK_KMS_COMMON_ID_H_
+#ifndef _BK_KMS_DECRYPT_H_
+#define _BK_KMS_DECRYPT_H_
 
 #include <string>
 
 namespace bkkms {
 
-// GenUUID returns a canonical hyphenated UUID v4 string.
-std::string GenUUID() noexcept;
-
-// GenReqID returns the 32-hex-char form of a UUID v4 (hyphens removed).
-std::string GenReqID() noexcept;
+/**
+ * Decrypt decrypts envelope with privateKey.
+ *
+ * On success plaintext is the original payload, returned as-is.
+ * On failure err is set.
+ *
+ * @return true on success.
+ */
+bool Decrypt(const std::string& envelope, const std::string& privateKey,
+             std::string& plaintext, std::string& err) noexcept;
 
 } // namespace bkkms
 
-#endif // _BK_KMS_COMMON_ID_H_
+#endif // _BK_KMS_DECRYPT_H_

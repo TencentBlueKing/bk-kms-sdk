@@ -4,9 +4,7 @@
 
 ## Features
 
-- **凭证消费**: 通过 Access Key / Secret Key 拉取凭证, 无需在业务侧持久化敏感数据;
-- **安全传输**: 请求签名 + 混合加密信封安全传输敏感信息 (默认 `RSA + AES`, 兼容国密 `SM2 + SM4`);
-- **自动协商**: 上层调用无感知, 由 SDK 自动完成密钥协商与明文解封, 将复杂的认证流程简单化;
+- 解密信封: 支持凭证消费运行时解密基础功能
 
 ## Installation
 
@@ -28,8 +26,7 @@ make install  # 安装到 /usr/local
 ## Getting started
 
 - [快速上手](docs/quickstart.md)
-- [examples/consume](examples/consume)
-- [examples/consume_envelope](examples/consume_envelope)
+- [examples/decrypt](examples/decrypt)
 
 ## License
 

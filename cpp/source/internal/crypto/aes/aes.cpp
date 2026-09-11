@@ -18,7 +18,7 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-#include "bk-kms/crypto.h"
+#include "internal/types/crypto.h"
 #include "internal/common/base64.h"
 
 namespace bkkms {

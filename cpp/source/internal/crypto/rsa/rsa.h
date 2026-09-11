@@ -20,13 +20,6 @@
 
 namespace bkkms {
 
-// GenerateRSAKeyPair produces a 2048-bit RSA key pair. Returned strings are
-// base64(PEM):
-//   publicKey  = base64(PEM PKIX / SubjectPublicKeyInfo)
-//   privateKey = base64(PEM PKCS1 "RSA PRIVATE KEY")
-bool GenerateRSAKeyPair(std::string& publicKeyB64, std::string& privateKeyB64,
-                        std::string& err) noexcept;
-
 // RSAEncrypt performs RSA-OAEP(SHA-256) encryption. publicKeyB64 accepts both
 // PKIX and PKCS1 forms. Output is base64 of the raw ciphertext.
 bool RSAEncrypt(const std::string& plaintext, const std::string& publicKeyB64,
