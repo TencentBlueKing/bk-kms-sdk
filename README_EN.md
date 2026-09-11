@@ -13,20 +13,19 @@ BlueKing Key Management Service (KMS) is the credential system of the BlueKing p
 
 ## Overview
 
-* [Integration Guide (In Chinese)](docs/integration.md)
-* [golang-sdk](go/README.md)
-* [cpp-sdk](cpp/README.md)
-* [python-sdk](python/README.md)
+This project is a collection of multi-language runtime decryption tools, providing SDKs for each language along with integration guides.
+
+* [Integration](docs/integration.md)
 
 ## Features
 
-- **Envelope decryption**: basic runtime decrypt for credential consumption
+- **Envelope decryption**: basic runtime credential decryption
 
 ## Getting started
 
-* [Go SDK quickstart (In Chinese)](go/docs/quickstart.md)
-* [CPP SDK quickstart (In Chinese)](cpp/docs/quickstart.md)
-* [Python SDK quickstart (In Chinese)](python/README.md)
+* [golang-sdk](go/README.md)
+* [cpp-sdk](cpp/README.md)
+* [python-sdk](python/README.md)
 
 ## Roadmap
 

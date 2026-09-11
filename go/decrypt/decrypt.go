@@ -13,7 +13,6 @@
  * of the project delivered to anyone in the future.
  */
 
-// Package decrypt decrypts hybrid envelopes.
 package decrypt
 
 import (

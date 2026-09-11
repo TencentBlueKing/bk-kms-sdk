@@ -1,21 +1,22 @@
 # BK-KMS-SDK C++版本
 
-提供 C++11 语言的 BK-KMS SDK。
+运行时解密还原凭证明文, 信封格式由 KMS 服务约定，调用方无需关心。
 
-## Features
+## 运行环境
 
-- 解密信封: 支持凭证消费运行时解密基础功能
+- C++11
+- 依赖 Tongsuo OpenSSL、rapidjson，默认支持 RSA、AES 及国密 SM2、SM4
 
-## Installation
+## 安装
 
-安装第三方依赖 (Tongsuo OpenSSL、rapidjson):
+Tongsuo OpenSSL、rapidjson 通过 `third-party/install.sh` 自动下载编译并安装到 `/usr/local`，已装过对应依赖会自动跳过：
 
 ```bash
 cd cpp
 make deps
 ```
 
-编译并安装 SDK 到 `/usr/local`:
+安装完第三方依赖后编译并安装 SDK：
 
 ```bash
 cd cpp
@@ -23,10 +24,19 @@ make          # 生成 build/lib/libbkkms.a
 make install  # 安装到 /usr/local
 ```
 
-## Getting started
+SDK 只产出静态库，无 `.so` 运行时依赖。链接到用户程序时需要显式指定 Tongsuo 静态库：
 
-- [快速上手](docs/quickstart.md)
-- [examples/decrypt](examples/decrypt)
+```bash
+g++ -std=c++11 user_app.cc \
+    -I/usr/local/include \
+    -L/usr/local/lib -L/usr/local/lib64 \
+    -Wl,-Bstatic -lbkkms -lssl -lcrypto -Wl,-Bdynamic \
+    -lpthread -ldl -o user_app
+```
+
+## 示例
+
+见 [examples/decrypt](examples/decrypt)。
 
 ## License
 

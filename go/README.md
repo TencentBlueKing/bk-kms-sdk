@@ -1,23 +1,21 @@
 # BK-KMS-SDK GO版本
 
-提供 Go 语言的 BK-KMS SDK。
+运行时解密还原凭证明文, 信封格式由 KMS 服务约定，调用方无需关心。
 
-## Features
+## 运行环境
 
-- 解密信封: 支持凭证消费运行时解密基础功能
+- Go `>=1.24`（国密依赖 `gmsm` 的最低要求）
+- 默认支持 RSA、AES，SM2、SM4 无需额外配置
 
-## Installation
-
-需要 **Go 1.24+**（国密依赖 `gmsm` 的最低要求）。
+## 安装
 
 ```bash
 go get github.com/TencentBlueKing/bk-kms-sdk/go
 ```
 
-## Getting started
+## 示例
 
-- [快速上手](docs/quickstart.md)
-- [examples/decrypt](examples/decrypt)
+见 [examples/decrypt](examples/decrypt)。
 
 ## License
 
