@@ -13,21 +13,26 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_RETRY_H_
-#define _BK_KMS_RETRY_H_
-
-#include <functional>
-#include <string>
+#ifndef _BK_KMS_INTERNAL_TYPES_CRYPTO_H_
+#define _BK_KMS_INTERNAL_TYPES_CRYPTO_H_
 
 namespace bkkms {
 
-// RetryFunc is a single attempt. It returns true on success; on failure it
-// fills err and sets retryable.
-using RetryFunc = std::function<bool(bool& retryable, std::string& err)>;
+// clang-format off
 
-// RetryDo runs fn at most maxAttempts times.
-bool RetryDo(int maxAttempts, const RetryFunc& fn, std::string& err) noexcept;
+// Algorithm identifiers carried inside the envelope.
+constexpr const char* const CryptoTypeRSA = "RSA";
+constexpr const char* const CryptoTypeSM2 = "SM2";
+constexpr const char* const CryptoTypeAES = "AES";
+constexpr const char* const CryptoTypeSM4 = "SM4";
+constexpr const char* const CryptoModeCBC = "CBC";
+constexpr const char* const CryptoModeCTR = "CTR";
+
+// Symmetric data-key length in bytes.
+constexpr int CryptoKeyLength = 16;
+
+// clang-format on
 
 } // namespace bkkms
 
-#endif // _BK_KMS_RETRY_H_
+#endif // _BK_KMS_INTERNAL_TYPES_CRYPTO_H_

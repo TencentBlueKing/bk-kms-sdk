@@ -17,7 +17,7 @@ make install    # 安装头文件与静态库到 /usr/local
 make clean      # 清理构建产物
 ```
 
-`examples/consume/` 与 `examples/consume_envelope/` 下的示例是独立的最小工程 (依赖 `make install` 之后的头文件与静态库), 参与开发时不由 SDK 主 Makefile 编译, 需要单独 `cd examples/<capability> && make` 验证。
+`examples/decrypt/` 下的示例是独立的最小工程 (依赖 `make install` 之后的头文件与静态库), 参与开发时不由 SDK 主 Makefile 编译, 需要单独 `cd examples/<capability> && make` 验证。
 
 ## 示例
 

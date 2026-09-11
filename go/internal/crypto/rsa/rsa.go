@@ -26,34 +26,6 @@ import (
 	"fmt"
 )
 
-const defaultRSAKeyBits = 2048
-
-// GenerateKeyPair generates rsa key pair.
-func GenerateKeyPair() (string, string, error) {
-	rsaPrivateKey, err := rsa.GenerateKey(rand.Reader, defaultRSAKeyBits)
-	if err != nil {
-		return "", "", fmt.Errorf("generate rsa key pair error(%+v)", err)
-	}
-
-	publicKeyBytes, err := x509.MarshalPKIXPublicKey(&rsaPrivateKey.PublicKey)
-	if err != nil {
-		return "", "", fmt.Errorf("marshal rsa public key error(%+v)", err)
-	}
-
-	publicKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "PUBLIC KEY",
-		Bytes: publicKeyBytes,
-	})
-
-	privateKeyPEM := pem.EncodeToMemory(&pem.Block{
-		Type:  "RSA PRIVATE KEY",
-		Bytes: x509.MarshalPKCS1PrivateKey(rsaPrivateKey),
-	})
-
-	return base64.StdEncoding.EncodeToString(publicKeyPEM),
-		base64.StdEncoding.EncodeToString(privateKeyPEM), nil
-}
-
 // RSAEncrypt encrypt data in rsa mode.
 func RSAEncrypt(plaintext, publicKeyBase64 string) (string, error) {
 	publicKey, err := base64.StdEncoding.DecodeString(publicKeyBase64)

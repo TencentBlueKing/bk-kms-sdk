@@ -16,27 +16,12 @@
 #include "internal/crypto/sm2/sm2.h"
 
 #include <openssl/bio.h>
-#include <openssl/ec.h>
 #include <openssl/evp.h>
-#include <openssl/obj_mac.h>
 #include <openssl/pem.h>
 
 #include "internal/common/base64.h"
 
 namespace bkkms {
-
-static std::string BIOToString(BIO* bio) noexcept
-{
-    char* data = nullptr;
-    long len = BIO_get_mem_data(bio, &data);
-
-    if (len <= 0 || data == nullptr)
-    {
-        return {};
-    }
-
-    return std::string(data, static_cast<size_t>(len));
-}
 
 // LoadSM2KeyFromB64PEM parses a base64(PEM) SM2 key. Works for both public
 // (via PEM_read_bio_PUBKEY) and private (via PEM_read_bio_PrivateKey).
@@ -103,115 +88,6 @@ static EVP_PKEY* LoadSM2PrivateKeyFromB64PEM(const std::string& privateKeyB64, s
     EVP_PKEY_set_alias_type(pkey, EVP_PKEY_SM2);
 
     return pkey;
-}
-
-bool GenerateSM2KeyPair(std::string& publicKeyB64, std::string& privateKeyB64,
-                        std::string& err) noexcept
-{
-    // paramgen on the sm2 curve.
-    EVP_PKEY* params = nullptr;
-    EVP_PKEY_CTX* pctx = EVP_PKEY_CTX_new_id(EVP_PKEY_EC, nullptr);
-    if (pctx == nullptr)
-    {
-        err = "create sm2 param ctx failed";
-        return false;
-    }
-
-    bool ok = false;
-
-    do
-    {
-        if (EVP_PKEY_paramgen_init(pctx) <= 0)
-        {
-            err = "sm2 paramgen init failed";
-            break;
-        }
-
-        if (EVP_PKEY_CTX_set_ec_paramgen_curve_nid(pctx, NID_sm2) <= 0)
-        {
-            err = "sm2 set curve failed";
-            break;
-        }
-
-        if (EVP_PKEY_paramgen(pctx, &params) <= 0 || params == nullptr)
-        {
-            err = "sm2 paramgen failed";
-            break;
-        }
-
-        ok = true;
-
-    } while (false);
-
-    EVP_PKEY_CTX_free(pctx);
-
-    if (!ok)
-    {
-        EVP_PKEY_free(params);
-        return false;
-    }
-
-    EVP_PKEY_CTX* kctx = EVP_PKEY_CTX_new(params, nullptr);
-    EVP_PKEY* pkey = nullptr;
-    ok = false;
-
-    if (kctx != nullptr)
-    {
-        if (EVP_PKEY_keygen_init(kctx) > 0 && EVP_PKEY_keygen(kctx, &pkey) > 0 && pkey != nullptr)
-        {
-            ok = true;
-        }
-        else
-        {
-            err = "sm2 keygen failed";
-        }
-    }
-    else
-    {
-        err = "create sm2 key ctx failed";
-    }
-
-    EVP_PKEY_CTX_free(kctx);
-    EVP_PKEY_free(params);
-
-    if (!ok)
-    {
-        EVP_PKEY_free(pkey);
-        return false;
-    }
-
-    // No alias here. It would write the SM2 OID as the SPKI algorithm instead
-    // of id-ecPublicKey, which peers reading the public key cannot parse.
-    BIO* pubBio = BIO_new(BIO_s_mem());
-    bool pubOk = pubBio != nullptr && PEM_write_bio_PUBKEY(pubBio, pkey) == 1;
-    std::string pubPem = pubOk ? BIOToString(pubBio) : std::string{};
-    if (pubBio)
-    {
-        BIO_free(pubBio);
-    }
-
-    BIO* privBio = BIO_new(BIO_s_mem());
-    bool privOk = privBio != nullptr &&
-                  PEM_write_bio_PrivateKey(privBio, pkey, nullptr, nullptr, 0, nullptr, nullptr) == 1;
-
-    std::string privPem = privOk ? BIOToString(privBio) : std::string{};
-    if (privBio)
-    {
-        BIO_free(privBio);
-    }
-
-    EVP_PKEY_free(pkey);
-
-    if (!pubOk || !privOk)
-    {
-        err = "encode sm2 pem failed";
-        return false;
-    }
-
-    publicKeyB64 = Base64Encode(pubPem);
-    privateKeyB64 = Base64Encode(privPem);
-
-    return true;
 }
 
 bool SM2Encrypt(const std::string& plaintext, const std::string& publicKeyB64,

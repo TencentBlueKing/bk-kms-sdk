@@ -5,7 +5,6 @@ TMPPATH       = ${BUILD_TEMP_DIR}/${CUR_WORK_DIR}
 
 INCLUDEF += -I${MODULE_ROOT}/include
 INCLUDEF += -I${MODULE_ROOT}/source
-INCLUDEF += -I${MODULE_ROOT}/third-party/httplib
 INCLUDEF += -I/usr/local/include
 INCLUDEF += -I/usr/include
 
@@ -13,7 +12,6 @@ PROGRAMSET += -std=c++11
 PROGRAMSET += -g -O2
 PROGRAMSET += -Wno-deprecated-declarations
 PROGRAMSET += -DRAPIDJSON_HAS_STDSTRING=1
-PROGRAMSET += -DCPPHTTPLIB_OPENSSL_SUPPORT
 
 ifndef ENABLE_ASSERT
 PROGRAMSET += -DNDEBUG

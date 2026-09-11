@@ -13,22 +13,23 @@
  * of the project delivered to anyone in the future.
  */
 
-#ifndef _BK_KMS_COMMON_HASH_H_
-#define _BK_KMS_COMMON_HASH_H_
+package main
 
-#include <string>
+import (
+	"fmt"
+	"log"
 
-namespace bkkms {
+	"github.com/TencentBlueKing/bk-kms-sdk/go/decrypt"
+)
 
-// SHA256Sum returns the raw 32-byte SHA-256 digest of the input.
-std::string SHA256Sum(const std::string& data) noexcept;
+func main() {
+	envelope := "your_envelope"
+	privateKey := "your_private_key"
 
-// HMACSHA256 returns the raw 32-byte HMAC-SHA256 digest. Empty on failure.
-std::string HMACSHA256(const std::string& key, const std::string& data) noexcept;
+	plaintext, err := decrypt.Decrypt(envelope, privateKey)
+	if err != nil {
+		log.Fatalf("decrypt: %v", err)
+	}
 
-// HexEncode returns the lower-case hex representation of the input bytes.
-std::string HexEncode(const std::string& data) noexcept;
-
-} // namespace bkkms
-
-#endif // _BK_KMS_COMMON_HASH_H_
+	fmt.Println(plaintext)
+}

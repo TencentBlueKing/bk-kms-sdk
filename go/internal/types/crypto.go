@@ -92,27 +92,3 @@ const (
 	// CryptoKeyLength crypto key length.
 	CryptoKeyLength = 16
 )
-
-// CryptoInfo carries asymmetric and symmetric algorithm identifiers.
-type CryptoInfo struct {
-	AsymmetricType CryptoType `json:"asymmetric_type"`
-	SymmetricType  CryptoType `json:"symmetric_type"`
-	SymmetricMode  CryptoMode `json:"symmetric_mode"`
-}
-
-// ValidateHybrid validates asymmetric + symmetric fields.
-func (c CryptoInfo) ValidateHybrid() error {
-	if err := c.AsymmetricType.ValidateAsymmetric(); err != nil {
-		return err
-	}
-
-	if err := c.SymmetricType.ValidateSymmetric(); err != nil {
-		return err
-	}
-
-	if err := c.SymmetricMode.Validate(); err != nil {
-		return err
-	}
-
-	return nil
-}

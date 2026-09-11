@@ -20,13 +20,6 @@
 
 namespace bkkms {
 
-// GenerateSM2KeyPair produces an SM2 key pair on the sm2 curve. Returned
-// strings are base64(PEM):
-//   publicKey  = base64(PEM SubjectPublicKeyInfo/EC-SM2)
-//   privateKey = base64(PEM PKCS8/EC-SM2)
-bool GenerateSM2KeyPair(std::string& publicKeyB64, std::string& privateKeyB64,
-                        std::string& err) noexcept;
-
 // SM2Encrypt performs SM2 encryption. publicKeyB64 is base64(PEM) of a
 // SubjectPublicKeyInfo carrying an EC/SM2 curve. Ciphertext is ASN.1-encoded
 // (Tongsuo default); the returned string is base64 of that ciphertext.

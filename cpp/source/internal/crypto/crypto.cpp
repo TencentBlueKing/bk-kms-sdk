@@ -15,15 +15,50 @@
 
 #include "internal/crypto/crypto.h"
 
-#include "bk-kms/crypto.h"
+#include "internal/types/crypto.h"
 #include "internal/common/base64.h"
+#include "internal/common/rapidjson_macro.h"
 #include "internal/crypto/aes/aes.h"
 #include "internal/crypto/rsa/rsa.h"
 #include "internal/crypto/sm2/sm2.h"
 #include "internal/crypto/sm4/sm4.h"
-#include "types/credential.h"
 
 namespace bkkms {
+
+struct Envelope
+{
+    std::string m_asymmetricType;
+    std::string m_symmetricType;
+    std::string m_symmetricMode;
+    std::string m_encryptedKey;
+    std::string m_ciphertext;
+};
+
+static bool UnmarshalEnvelope(const std::string& in, Envelope& out) noexcept
+{
+    rapidjson::Document doc;
+    if (doc.Parse(in.data(), in.size()).HasParseError() || !doc.IsObject())
+    {
+        return false;
+    }
+
+    if (!RAPIDJSON_CHECK_IS_STRING(doc, "asymmetric_type") ||
+        !RAPIDJSON_CHECK_IS_STRING(doc, "symmetric_type") ||
+        !RAPIDJSON_CHECK_IS_STRING(doc, "symmetric_mode") ||
+        !RAPIDJSON_CHECK_IS_STRING(doc, "encrypted_key") ||
+        !RAPIDJSON_CHECK_IS_STRING(doc, "ciphertext"))
+    {
+        return false;
+    }
+
+    out.m_asymmetricType = RAPIDJSON_GET_STRING(doc, "asymmetric_type", "");
+    out.m_symmetricType = RAPIDJSON_GET_STRING(doc, "symmetric_type", "");
+    out.m_symmetricMode = RAPIDJSON_GET_STRING(doc, "symmetric_mode", "");
+    out.m_encryptedKey = RAPIDJSON_GET_STRING(doc, "encrypted_key", "");
+    out.m_ciphertext = RAPIDJSON_GET_STRING(doc, "ciphertext", "");
+
+    return true;
+}
 
 bool SymmetricDecrypt(const std::string& encodedText,
                       const std::string& cryptoType, const std::string& cryptoMode,
