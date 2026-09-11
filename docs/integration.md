@@ -31,6 +31,63 @@
 - **Secret 消费(推荐)**：凭证注入 K8S Secret，应用运行时解密使用;
 - **文件消费**：凭证以文件形式挂载，应用运行时解密使用;
 
+## 前置：OpenBao 侧配置
+
+无论采用 ESO 还是 Agent Injector，业务侧接入前，OpenBao 都需完成以下配置。以 BK-KMS 托管的 OpenBao 为例，这些配置通常由 KMS 平台在托管凭证时自动完成；若使用自建 OpenBao（裸机或独立 Helm 集群），需由管理员手动配置一次。
+
+> 下述 `role`、`policy`、KV 路径等命名与后文 ESO / Injector 示例保持一致（`app-prod-reader` / `secret` / `default/my-scope/mysql`），实际接入时请替换为业务真实值。
+
+**1. 启用 KV v2 引擎（凭证存储）:**
+
+```shell
+bao secrets enable -path=secret -version=2 kv
+```
+
+**2. 启用并配置 Kubernetes Auth（业务 SA 可信身份认证）:**
+
+```shell
+bao auth enable kubernetes
+
+# 配置认证。关键点见下方说明
+bao write auth/kubernetes/config \
+  kubernetes_host="https://<K8S_API_SERVER>:443" \
+  kubernetes_ca_cert=@/path/to/k8s-ca.crt \
+  disable_iss_validation=true
+```
+
+> - **`token_reviewer_jwt`**：OpenBao 需调用 K8S TokenReview API 校验业务 SA 的 Token，调用者需具备 `system:auth-delegator` 权限。
+>   - OpenBao **部署在 K8S 集群内**（如官方 Helm Chart）：无需显式传该参数，OpenBao 会使用自身 Pod 的 ServiceAccount Token（Chart 已为其绑定 `system:auth-delegator`）。
+>   - OpenBao **部署在集群外**（裸机）：需手动创建一个绑定 `system:auth-delegator` 的 ServiceAccount，将其 Token 通过 `token_reviewer_jwt=@<token文件>` 传入，否则 TokenReview 调用会被拒（表现为登录 `403 permission denied`）。
+> - **`disable_iss_validation=true`**：新版 K8S 签发的 SA Token 其 `issuer` 可能与 OpenBao 默认校验值不一致，关闭 issuer 校验可避免登录 403。
+
+**3. 创建 Policy（授权读取凭证）:**
+
+```shell
+bao policy write kms-read - <<EOF
+path "secret/data/*"     { capabilities = ["read", "list"] }
+path "secret/metadata/*" { capabilities = ["read", "list"] }
+EOF
+```
+
+**4. 创建 Role（绑定业务 SA 与 Policy）:**
+
+```shell
+bao write auth/kubernetes/role/app-prod-reader \
+  bound_service_account_names="app-prod-sa" \
+  bound_service_account_namespaces="app-prod" \
+  policies="kms-read" \
+  ttl=1h
+```
+
+> **关于 audience**：ESO / Injector 通过 K8S TokenRequest 为业务 SA 签发 Token 时可能携带特定 `audience`。若登录仍报 `403 permission denied`，需确保签发 Token 的 audience 与 OpenBao 校验一致：可在 Role 上通过 `audience="<值>"` 绑定，并在 ESO 的 `serviceAccountRef.audiences` 或 Injector 侧指定相同值。
+
+**验证（配置完成后自检）:** 用一个受 Role 约束的业务 SA Token 尝试登录，返回 `token` 且 `token_policies` 含 `kms-read` 即表示前置配置正确：
+
+```shell
+JWT=$(kubectl create token app-prod-sa -n app-prod)
+bao write auth/kubernetes/login role=app-prod-reader jwt=$JWT
+```
+
 ## ESO（External Secrets Operator）凭证消费
 
 ESO 是 K8S 上主流的外部密钥同步组件，通过 Operator 持续将外部密钥系统中的凭证同步为原生 K8S Secret。集成时以业务 Pod 的 ServiceAccount 为可信身份，经 Kubernetes Auth 认证连接 OpenBao，由 ExternalSecret 声明式地拉取指定凭证并生成 Secret，再按需以环境变量或文件形式注入业务容器。凭证同步与轮转由 ESO 依据刷新周期自动完成，业务侧仅消费标准 K8S Secret，无侵入、可复用平台既有的 Secret 消费能力。
@@ -50,7 +107,7 @@ metadata:
 **1. SecretStore —— 用 SA Token 认证连接 OpenBao: **
 
 ```yaml
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: SecretStore
 metadata:
   name: openbao-store
@@ -62,18 +119,23 @@ spec:
       server: "https://openbao.bk-kms.svc:8200"
       path: "secret"
       version: "v2"
+      # OpenBao 启用 HTTPS 且使用自签/内部 CA 时，需让 ESO 信任其 CA，二选一：
+      #   caBundle: <base64 编码的 CA 证书>
+      #   caProvider: { type: Secret, name: <ca secret>, key: ca.crt, namespace: app-prod }
       auth:
         kubernetes:
           mountPath: "kubernetes"
           role: "app-prod-reader"
           serviceAccountRef:
             name: "app-prod-sa"
+            # 若因 audience 校验导致登录 403，在此显式指定与 OpenBao role 绑定一致的 audience：
+            # audiences: ["<audience>"]
 ```
 
 **2. ExternalSecret —— 同步指定凭证生成 K8S Secret: **
 
 ```yaml
-apiVersion: external-secrets.io/v1beta1
+apiVersion: external-secrets.io/v1
 kind: ExternalSecret
 metadata:
   name: app-mysql-credential
@@ -98,7 +160,7 @@ spec:
         property: envelope              # 蓝鲸 KMS 托管的 OpenBAO 凭证信封字段名, 约定为 'envelope'
 ```
 
-**3. Deployment —— Pod 以 SA 运行，凭证挂载为文件: **
+**3. Deployment —— Pod 以 SA 运行，消费同步出的 Secret: **
 
 ```yaml
 apiVersion: apps/v1
