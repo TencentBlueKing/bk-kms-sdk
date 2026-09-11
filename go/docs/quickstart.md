@@ -2,6 +2,8 @@
 
 ## 1. 安装
 
+因gmsm算法需求，需要 Go 1.24 或更高版本。
+
 ```bash
 go get github.com/TencentBlueKing/bk-kms-sdk/go
 ```

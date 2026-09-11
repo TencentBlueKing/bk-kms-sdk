@@ -1,6 +1,6 @@
 module github.com/TencentBlueKing/bk-kms-sdk/go
 
-go 1.24.4
+go 1.24.0
 
 require github.com/emmansun/gmsm v0.41.1
 

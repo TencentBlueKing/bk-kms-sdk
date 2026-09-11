@@ -8,6 +8,8 @@
 
 ## Installation
 
+需要 **Go 1.24+**（国密依赖 `gmsm` 的最低要求）。
+
 ```bash
 go get github.com/TencentBlueKing/bk-kms-sdk/go
 ```
