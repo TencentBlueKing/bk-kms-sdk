@@ -13,20 +13,19 @@
 
 ## Overview
 
+本项目是一套多语言实现的运行时解密工具集合，提供各语言 SDK 及集成接入方案。
+
 * [集成方案](docs/integration.md)
-* [golang-sdk](go/README.md)
-* [cpp-sdk](cpp/README.md)
-* [python-sdk](python/README.md)
 
 ## Features
 
-- **解密信封**: 支持凭证消费运行时解密基础功能
+- **信封解密**: 运行时凭证解密基础功能
 
 ## Getting started
 
-* [Go SDK 快速上手](go/docs/quickstart.md)
-* [CPP SDK 快速上手](cpp/docs/quickstart.md)
-* [Python SDK 快速上手](python/README.md)
+* [golang-sdk](go/README.md)
+* [cpp-sdk](cpp/README.md)
+* [python-sdk](python/README.md)
 
 ## Roadmap
 

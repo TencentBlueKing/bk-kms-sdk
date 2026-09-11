@@ -18,8 +18,8 @@
 #include <openssl/evp.h>
 #include <openssl/rand.h>
 
-#include "internal/types/crypto.h"
 #include "internal/common/base64.h"
+#include "internal/types/crypto.h"
 
 namespace bkkms {
 
