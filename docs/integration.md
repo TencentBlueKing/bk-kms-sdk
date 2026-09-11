@@ -88,6 +88,49 @@ JWT=$(kubectl create token app-prod-sa -n app-prod)
 bao write auth/kubernetes/login role=app-prod-reader jwt=$JWT
 ```
 
+## 前置：注入层组件安装
+
+前述 OpenBao 侧配置完成后，业务侧接入前还需在 K8S 集群内安装对应的注入层组件。ESO 与 Agent Injector 的组件相互独立，按实际选用的方案安装其一即可（同时使用两种方案则都装）。此类组件为集群级基础设施，通常由集群管理员统一安装一次，各业务命名空间共享，无需每个业务重复部署。
+
+### ESO（External Secrets Operator）
+
+ESO 以 Deployment 形式运行在集群内，并注册 `SecretStore`/`ExternalSecret` 等 CRD。使用官方 Helm Chart 安装：
+
+```shell
+helm repo add external-secrets https://charts.external-secrets.io
+
+helm install external-secrets external-secrets/external-secrets \
+  -n external-secrets --create-namespace
+```
+
+> 默认会自动安装并管理 CRD；如需自行管理 CRD，可加 `--set installCRDs=false` 并单独 `kubectl apply` CRD bundle。安装完成后 `external-secrets` 命名空间下的 Pod 就绪，即可在业务命名空间创建 `SecretStore`/`ExternalSecret`。
+
+### Agent Injector
+
+Agent Injector 是一个 Mutating Webhook + Sidecar 注入控制器，随 OpenBao Helm Chart 提供。根据 OpenBao 的部署位置分两种情形：
+
+- **OpenBao 由 Chart 部署在同一集群内**：安装 Chart 时启用 injector 即可（Chart 默认即启用 `injector.enabled=true`）：
+
+  ```shell
+  helm repo add openbao https://openbao.github.io/openbao-helm
+
+  helm install openbao openbao/openbao \
+    -n openbao --create-namespace \
+    --set "injector.enabled=true"
+  ```
+
+- **OpenBao 部署在集群外（仅需 Injector）**：只安装 Injector，并通过 `injector.externalVaultAddr` 指向已有的 OpenBao 地址：
+
+  ```shell
+  helm install openbao-injector openbao/openbao \
+    -n openbao --create-namespace \
+    --set "injector.enabled=true" \
+    --set "server.enabled=false" \
+    --set "injector.externalVaultAddr=https://openbao.bk-kms.svc:8200"
+  ```
+
+> Injector 通过 Webhook 拦截带 `vault.hashicorp.com/agent-inject: "true"` 注解的 Pod 并注入 Agent Sidecar。安装后无需在业务命名空间额外部署组件，仅在业务 Deployment 上添加注解即可（见下文 Agent Injector 消费示例）。
+
 ## ESO（External Secrets Operator）凭证消费
 
 ESO 是 K8S 上主流的外部密钥同步组件，通过 Operator 持续将外部密钥系统中的凭证同步为原生 K8S Secret。集成时以业务 Pod 的 ServiceAccount 为可信身份，经 Kubernetes Auth 认证连接 OpenBao，由 ExternalSecret 声明式地拉取指定凭证并生成 Secret，再按需以环境变量或文件形式注入业务容器。凭证同步与轮转由 ESO 依据刷新周期自动完成，业务侧仅消费标准 K8S Secret，无侵入、可复用平台既有的 Secret 消费能力。
@@ -178,7 +221,6 @@ spec:
       labels:
         app: app-server
     spec:
-      serviceAccountName: app-prod-sa
       containers:
         - name: app
           image: your-registry/app-server:v1.0.0
