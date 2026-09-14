@@ -31,105 +31,99 @@
 - **Secret 消费(推荐)**：凭证注入 K8S Secret，应用运行时解密使用;
 - **文件消费**：凭证以文件形式挂载，应用运行时解密使用;
 
-## 前置：OpenBao 侧配置
+## 前置：KMS 凭证录入
 
-无论采用 ESO 还是 Agent Injector，业务侧接入前，平台需要对 OpenBao 都需完成以下配置。以 BK-KMS 托管的 OpenBao 为例，这些配置通常由 KMS 平台在托管凭证时自动完成；若使用自建 OpenBao（裸机或独立 Helm 集群），需由管理员手动配置一次。
+业务侧接入前，平台运维需先在 KMS 控制面录入一条凭证。
 
-> 下述 `role`、`policy`、KV 路径等命名与后文 ESO / Injector 示例保持一致（`app-prod-reader` / `secret` / `default/my-scope/mysql`），实际接入时请替换为业务真实值。
+凭证的底层存储与消费所需的存储引擎、认证方法、授权策略（Policy/Role 绑定）等均由 KMS 在录入时自动完成，业务与运维无需感知，也无需手动配置底层 OpenBao, 录入方只需提供凭证的基础信息与消费鉴权信息即可。
 
-**1. 启用 KV v2 引擎（凭证存储）:**
+### 通过 KMS 接口录入凭证
 
-```shell
-bao secrets enable -path=secret -version=2 kv
+凭证通过 KMS「创建凭证create_credential」接口录入，核心信息分为三部分：
+
+- **scope（业务范围）**：凭证归属的租户/业务范围，决定凭证的隔离与路径前缀。
+- **metadata（凭证基础信息）**：凭证名称与原文内容等，`value` 需先做混合（信封）加密后再提交。
+- **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount 与角色。
+
+其中与业务侧消费直接相关的是 `auth`：
+
+| 字段                             | 说明                                                                                             | 与消费侧的对应关系                                                           |
+|----------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `service_account_name_list`      | 允许消费该凭证的 ServiceAccount 名称列表；不传递则不限制 ServiceAccount 名称（任意名称均可消费） | 对应业务 Pod 使用的 ServiceAccount 名称（下文示例中的 `app-prod-sa`）        |
+| `service_account_namespace_list` | 上述 ServiceAccount 所在命名空间列表；不传递则不限制命名空间（任意命名空间均可消费）             | 对应业务 Pod 所在命名空间（下文示例中的 `app-prod`）                         |
+| `role`                           | 绑定这些 ServiceAccount 用于消费凭证的角色名；不传递则使用 `default` 作为角色名                  | 对应 ESO `SecretStore` 的 `role` 与 Injector 注解 `vault.hashicorp.com/role` |
+
+**录入示例（KMS 创建凭证接口create_credential）:**
+
+```json
+{
+    "scope": {
+        "scope_type": "scope",
+        "scope_id": 1
+    },
+    "metadata": {
+        "name": "mysql",
+        "value": "BASE64_HYBRID_ENCRYPTED_CONTENT",
+        "description": "业务 MySQL 凭证",
+        "annotation": ""
+    },
+    "auth": {
+        "service_account_name_list": ["app-prod-sa"],
+        "service_account_namespace_list": ["app-prod"],
+        "role": "app-prod-reader"
+    }
+}
 ```
 
-**2. 启用并配置 Kubernetes Auth（业务 SA 可信身份认证）:**
+> - `value` 需先做混合（信封）加密后再填入，加密方式详见 KMS `get_crypto_info` 接口文档。
+> - `auth` 中声明的 SA/命名空间/角色，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
+> - 凭证录入成功后，凭证在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope，业务名称}/{凭证名称}`（下文示例为 `default/my-scope/mysql`），KMS 会依据 scope 与凭证名录入凭证以供业务进行消费。
 
-```shell
-bao auth enable kubernetes
+### 通过 kmsctl 命令行管理工具录入凭证
 
-# 配置认证。关键点见下方说明
-bao write auth/kubernetes/config \
-  kubernetes_host="https://<K8S_API_SERVER>:443" \
-  kubernetes_ca_cert=@/path/to/k8s-ca.crt \
-  disable_iss_validation=true
+除直接调用「创建凭证create_credential）」接口外，KMS 提供命令行工具 `kmsctl` 用于录入与维护凭证。
+
+该工具随 KMS 镜像分发（默认位于 `/data/kms/tools/kmsctl`），支持以一份 YAML 声明式地管理业务（scope）及其下的凭证：scope 不存在则创建、存在则更新；凭证按 `name` 匹配，不存在则创建、存在则更新。凭证的 `value` 传入原文明文，工具会在 apply 时自动完成混合（信封）加密。
+
+**1. 编写凭证声明文件（如 `my_scope_credential.yaml`）:**
+
+```yaml
+scope:
+  # 资源范围类型，当前可选值：scope
+  type: scope
+  # 资源范围名称（对应消费路径中的业务名）
+  name: my-scope
+  description: example scope
+  # 该 scope 下的凭证列表
+  credentials:
+    # 凭证名称，同一 scope 下唯一，作为匹配创建/更新的依据
+    - name: mysql
+      # 凭证原文（明文），apply 时自动做混合(信封)加密
+      value: 'change-me'
+      description: 业务 MySQL 凭证
+      annotation: ""
+      # 以下三项声明允许消费该凭证的 K8S 可信身份，对应「创建凭证」接口的 auth 字段
+      # 允许消费该凭证的 ServiceAccount 名称列表
+      service_account_name_list:
+        - app-prod-sa
+      # 上述 ServiceAccount 所在命名空间列表
+      service_account_namespace_list:
+        - app-prod
+      # 绑定这些 ServiceAccount 用于消费凭证的角色名
+      role: app-prod-reader
 ```
 
-> - **`token_reviewer_jwt`**：OpenBao 需调用 K8S TokenReview API 校验业务 SA 的 Token，调用者需具备 `system:auth-delegator` 权限。
->   - OpenBao **部署在 K8S 集群内**（如官方 Helm Chart）：无需显式传该参数，OpenBao 会使用自身 Pod 的 ServiceAccount Token（Chart 已为其绑定 `system:auth-delegator`）。
->   - OpenBao **部署在集群外**（裸机）：需手动创建一个绑定 `system:auth-delegator` 的 ServiceAccount，将其 Token 通过 `token_reviewer_jwt=@<token文件>` 传入，否则 TokenReview 调用会被拒（表现为登录 `403 permission denied`）。
-> - **`disable_iss_validation=true`**：新版 K8S 签发的 SA Token 其 `issuer` 可能与 OpenBao 默认校验值不一致，关闭 issuer 校验可避免登录 403。
+**2. 应用声明，完成录入:**
 
-**3. 创建 Policy（授权读取凭证）:**
-
-```shell
-bao policy write kms-read - <<EOF
-path "secret/data/*"     { capabilities = ["read", "list"] }
-path "secret/metadata/*" { capabilities = ["read", "list"] }
-EOF
+```bash
+kmsctl apply -f my_scope_credential.yaml
 ```
 
-**4. 创建 Role（绑定业务 SA 与 Policy）:**
+其中凭证的 `service_account_name_list`、`service_account_namespace_list`、`role` 三项声明消费鉴权信息，对应「创建凭证」接口 `auth` 字段，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
 
-```shell
-bao write auth/kubernetes/role/app-prod-reader \
-  bound_service_account_names="app-prod-sa" \
-  bound_service_account_namespaces="app-prod" \
-  policies="kms-read" \
-  ttl=1h
-```
+> - 三项消费鉴权字段均为可选：不填写 `service_account_name_list` / `service_account_namespace_list` 则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）；不填写 `role` 则使用 `default` 作为角色名。
 
-> **关于 audience**：ESO / Injector 通过 K8S TokenRequest 为业务 SA 签发 Token 时可能携带特定 `audience`。若登录仍报 `403 permission denied`，需确保签发 Token 的 audience 与 OpenBao 校验一致：可在 Role 上通过 `audience="<值>"` 绑定，并在 ESO 的 `serviceAccountRef.audiences` 或 Injector 侧指定相同值。
-
-**验证（配置完成后自检）:** 用一个受 Role 约束的业务 SA Token 尝试登录，返回 `token` 且 `token_policies` 含 `kms-read` 即表示前置配置正确：
-
-```shell
-JWT=$(kubectl create token app-prod-sa -n app-prod)
-bao write auth/kubernetes/login role=app-prod-reader jwt=$JWT
-```
-
-## 前置：注入层组件安装
-
-前述 OpenBao 侧配置完成后，业务侧接入前还需在 K8S 集群内安装对应的注入层组件。ESO 与 Agent Injector 的组件相互独立，按实际选用的方案安装其一即可（同时使用两种方案则都装）。此类组件为集群级基础设施，通常由集群管理员统一安装一次，各业务命名空间共享，无需每个业务重复部署。
-
-### ESO（External Secrets Operator）
-
-ESO 以 Deployment 形式运行在集群内，并注册 `SecretStore`/`ExternalSecret` 等 CRD。使用官方 Helm Chart 安装：
-
-```shell
-helm repo add external-secrets https://charts.external-secrets.io
-
-helm install external-secrets external-secrets/external-secrets \
-  -n external-secrets --create-namespace
-```
-
-> 默认会自动安装并管理 CRD；如需自行管理 CRD，可加 `--set installCRDs=false` 并单独 `kubectl apply` CRD bundle。安装完成后 `external-secrets` 命名空间下的 Pod 就绪，即可在业务命名空间创建 `SecretStore`/`ExternalSecret`。
-
-### Agent Injector
-
-Agent Injector 是一个 Mutating Webhook + Sidecar 注入控制器，随 OpenBao Helm Chart 提供。根据 OpenBao 的部署位置分两种情形：
-
-- **OpenBao 由 Chart 部署在同一集群内**：安装 Chart 时启用 injector 即可（Chart 默认即启用 `injector.enabled=true`）：
-
-  ```shell
-  helm repo add openbao https://openbao.github.io/openbao-helm
-
-  helm install openbao openbao/openbao \
-    -n openbao --create-namespace \
-    --set "injector.enabled=true"
-  ```
-
-- **OpenBao 部署在集群外（仅需 Injector）**：只安装 Injector，并通过 `injector.externalVaultAddr` 指向已有的 OpenBao 地址：
-
-  ```shell
-  helm install openbao-injector openbao/openbao \
-    -n openbao --create-namespace \
-    --set "injector.enabled=true" \
-    --set "server.enabled=false" \
-    --set "injector.externalVaultAddr=https://openbao.bk-kms.svc:8200"
-  ```
-
-> Injector 通过 Webhook 拦截带 `vault.hashicorp.com/agent-inject: "true"` 注解的 Pod 并注入 Agent Sidecar。安装后无需在业务命名空间额外部署组件，仅在业务 Deployment 上添加注解即可（见下文 Agent Injector 消费示例）。
+更多子命令及参数（`create`/`list`/`get`/`update`/`delete` 等）可执行 `kmsctl --help` 查看。
 
 ## 业务 ESO（External Secrets Operator）凭证消费
 
