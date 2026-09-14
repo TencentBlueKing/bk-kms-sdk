@@ -162,9 +162,6 @@ spec:
       server: "https://openbao.bk-kms.svc:8200"
       path: "secret"
       version: "v2"
-      # OpenBao 启用 HTTPS 且使用自签/内部 CA 时，需让 ESO 信任其 CA，二选一：
-      #   caBundle: <base64 编码的 CA 证书>
-      #   caProvider: { type: Secret, name: <ca secret>, key: ca.crt, namespace: app-prod }
       auth:
         kubernetes:
           mountPath: "kubernetes"
