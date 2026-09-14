@@ -43,15 +43,15 @@
 
 - **scope（业务范围）**：凭证归属的租户/业务范围，决定凭证的隔离与路径前缀。
 - **metadata（凭证基础信息）**：凭证名称与原文内容等，`value` 需先做混合（信封）加密后再提交。
-- **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount 与角色。
+- **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount 与角色, `auth` 为一个**列表**，支持为同一凭证配置**多组** role 绑定，每组由一个 `role` 及绑定它的 ServiceAccount 名称/命名空间列表组成。
 
-其中与业务侧消费直接相关的是 `auth`：
+其中与业务侧消费直接相关的是 `auth`，列表中每一组的字段如下：
 
 | 字段                             | 说明                                                                                             | 与消费侧的对应关系                                                           |
 |----------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
+| `role`                           | 绑定这些 ServiceAccount 用于消费凭证的角色名；不传递则使用 `default` 作为角色名                  | 对应 ESO `SecretStore` 的 `role` 与 Injector 注解 `vault.hashicorp.com/role` |
 | `service_account_name_list`      | 允许消费该凭证的 ServiceAccount 名称列表；不传递则不限制 ServiceAccount 名称（任意名称均可消费） | 对应业务 Pod 使用的 ServiceAccount 名称（下文示例中的 `app-prod-sa`）        |
 | `service_account_namespace_list` | 上述 ServiceAccount 所在命名空间列表；不传递则不限制命名空间（任意命名空间均可消费）             | 对应业务 Pod 所在命名空间（下文示例中的 `app-prod`）                         |
-| `role`                           | 绑定这些 ServiceAccount 用于消费凭证的角色名；不传递则使用 `default` 作为角色名                  | 对应 ESO `SecretStore` 的 `role` 与 Injector 注解 `vault.hashicorp.com/role` |
 
 **录入示例（KMS 创建凭证接口create_credential）:**
 
@@ -67,17 +67,21 @@
         "description": "业务 MySQL 凭证",
         "annotation": ""
     },
-    "auth": {
-        "service_account_name_list": ["app-prod-sa"],
-        "service_account_namespace_list": ["app-prod"],
-        "role": "app-prod-reader"
-    }
+    "auth": [
+        {
+            "role": "app-prod-reader",
+            "service_account_name_list": ["app-prod-sa"],
+            "service_account_namespace_list": ["app-prod"]
+        }
+    ]
 }
 ```
 
 > - `value` 需先做混合（信封）加密后再填入，加密方式详见 KMS `get_crypto_info` 接口文档。
+> - `auth` 为列表，可配置多组 role 绑定：如需让不同角色/不同命名空间的 ServiceAccount 消费同一凭证，在列表中追加多组配置即可。
 > - `auth` 中声明的 SA/命名空间/角色，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
-> - 凭证录入成功后，凭证在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope，业务名称}/{凭证名称}`（下文示例为 `default/my-scope/mysql`），KMS 会依据 scope 与凭证名录入凭证以供业务进行消费。
+
+凭证录入成功后，凭证在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope，业务名称}/{凭证名称}`（下文示例为 `default/my-scope/mysql`），KMS 会依据 scope 与凭证名录入凭证以供业务进行消费。
 
 ### 通过 kmsctl 命令行管理工具录入凭证
 
@@ -102,15 +106,16 @@ scope:
       value: 'change-me'
       description: 业务 MySQL 凭证
       annotation: ""
-      # 以下三项声明允许消费该凭证的 K8S 可信身份，对应「创建凭证」接口的 auth 字段
-      # 允许消费该凭证的 ServiceAccount 名称列表
-      service_account_name_list:
-        - app-prod-sa
-      # 上述 ServiceAccount 所在命名空间列表
-      service_account_namespace_list:
-        - app-prod
-      # 绑定这些 ServiceAccount 用于消费凭证的角色名
-      role: app-prod-reader
+      # 凭证的鉴权配置列表，支持多组配置，每组由一个 role 与绑定它的 ServiceAccount 名称/命名空间组成
+      auth:
+          # 绑定这些 ServiceAccount 用于消费凭证的角色名
+        - role: app-prod-reader
+          # 允许消费该凭证的 ServiceAccount 名称列表
+          service_account_name_list:
+            - app-prod-sa
+          # 上述 ServiceAccount 所在命名空间列表
+          service_account_namespace_list:
+            - app-prod
 ```
 
 **2. 应用声明，完成录入:**
@@ -119,9 +124,10 @@ scope:
 kmsctl apply -f my_scope_credential.yaml
 ```
 
-其中凭证的 `service_account_name_list`、`service_account_namespace_list`、`role` 三项声明消费鉴权信息，对应「创建凭证」接口 `auth` 字段，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
+其中凭证 `auth` 列表的每一组 `role`、`service_account_name_list`、`service_account_namespace_list` 声明一组消费鉴权信息，对应「创建凭证」接口 `auth` 字段，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
 
-> - 三项消费鉴权字段均为可选：不填写 `service_account_name_list` / `service_account_namespace_list` 则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）；不填写 `role` 则使用 `default` 作为角色名。
+> - `auth` 为列表，支持配置多组 role 绑定：如需让不同角色/不同命名空间的 ServiceAccount 消费同一凭证，在列表中追加多组配置即可。
+> - 每组内三项消费鉴权字段均为可选：不填写 `service_account_name_list` / `service_account_namespace_list` 则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）；不填写 `role` 则使用 `default` 作为角色名。
 
 更多子命令及参数（`create`/`list`/`get`/`update`/`delete` 等）可执行 `kmsctl --help` 查看。
 
@@ -157,13 +163,13 @@ spec:
       path: "secret"
       version: "v2"
       # 以下 TLS / mTLS 配置仅在 OpenBao 正式环境开启了证书时才需要，默认（未开启 TLS）可整段删除。
-      # # TLS：验证 OpenBao 服务端证书（OpenBao 开启 TLS 时使用，OpenBao Secret 需集群运维部署预先准备）
+      # TLS：验证 OpenBao 服务端证书（OpenBao 开启 TLS 时使用，OpenBao Secret 需集群运维部署预先准备）
       # caProvider:
       #   type: "Secret"
       #   name: "openbao-tls"
       #   key: "ca.crt"
       #   namespace: "app-prod"
-      # # mTLS：ESO 提供客户端证书（OpenBao 要求客户端双向认证时使用, OpenBao Secret 需集群运维部署预先准备）
+      # mTLS：ESO 提供客户端证书（OpenBao 要求客户端双向认证时使用, OpenBao Secret 需集群运维部署预先准备）
       # clientTls:
       #   certSecretRef:
       #     name: "openbao-client-tls"
