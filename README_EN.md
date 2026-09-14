@@ -26,6 +26,7 @@ This project is a collection of multi-language runtime decryption tools, providi
 * [golang-sdk](go/README.md)
 * [cpp-sdk](cpp/README.md)
 * [python-sdk](python/README.md)
+* [rust-sdk](rust/README.md)
 
 ## Roadmap
 
