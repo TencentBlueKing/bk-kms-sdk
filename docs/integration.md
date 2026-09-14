@@ -33,7 +33,7 @@
 
 ## 前置：OpenBao 侧配置
 
-无论采用 ESO 还是 Agent Injector，业务侧接入前，OpenBao 都需完成以下配置。以 BK-KMS 托管的 OpenBao 为例，这些配置通常由 KMS 平台在托管凭证时自动完成；若使用自建 OpenBao（裸机或独立 Helm 集群），需由管理员手动配置一次。
+无论采用 ESO 还是 Agent Injector，业务侧接入前，平台需要对 OpenBao 都需完成以下配置。以 BK-KMS 托管的 OpenBao 为例，这些配置通常由 KMS 平台在托管凭证时自动完成；若使用自建 OpenBao（裸机或独立 Helm 集群），需由管理员手动配置一次。
 
 > 下述 `role`、`policy`、KV 路径等命名与后文 ESO / Injector 示例保持一致（`app-prod-reader` / `secret` / `default/my-scope/mysql`），实际接入时请替换为业务真实值。
 
@@ -131,7 +131,7 @@ Agent Injector 是一个 Mutating Webhook + Sidecar 注入控制器，随 OpenBa
 
 > Injector 通过 Webhook 拦截带 `vault.hashicorp.com/agent-inject: "true"` 注解的 Pod 并注入 Agent Sidecar。安装后无需在业务命名空间额外部署组件，仅在业务 Deployment 上添加注解即可（见下文 Agent Injector 消费示例）。
 
-## ESO（External Secrets Operator）凭证消费
+## 业务 ESO（External Secrets Operator）凭证消费
 
 ESO 是 K8S 上主流的外部密钥同步组件，通过 Operator 持续将外部密钥系统中的凭证同步为原生 K8S Secret。集成时以业务 Pod 的 ServiceAccount 为可信身份，经 Kubernetes Auth 认证连接 OpenBao，由 ExternalSecret 声明式地拉取指定凭证并生成 Secret，再按需以环境变量或文件形式注入业务容器。凭证同步与轮转由 ESO 依据刷新周期自动完成，业务侧仅消费标准 K8S Secret，无侵入、可复用平台既有的 Secret 消费能力。
 
@@ -171,8 +171,6 @@ spec:
           role: "app-prod-reader"
           serviceAccountRef:
             name: "app-prod-sa"
-            # 若因 audience 校验导致登录 403，在此显式指定与 OpenBao role 绑定一致的 audience：
-            # audiences: ["<audience>"]
 ```
 
 **2. ExternalSecret —— 同步指定凭证生成 K8S Secret: **
@@ -248,7 +246,7 @@ spec:
 
 > **轮转说明**：ESO 依据 `refreshInterval` 周期性重新拉取 OpenBao 凭证并更新 K8S Secret，实现自动轮转。需注意轮转后的生效方式：以文件形式挂载的凭证（如 `envelope`）会由 kubelet 自动刷新到卷中，业务无需重启；而以环境变量形式注入的凭证（如 `privateKey`）在容器启动时即固化，Secret 更新后不会自动生效，需重启 Pod 方可加载新值。
 
-## Agent Injector 凭证消费
+## 业务 Agent Injector 凭证消费
 
 OpenBao Agent Injector 通过 K8S Mutating Webhook 拦截带有约定注解（annotations）的 Pod，自动为其注入一个 Agent Sidecar 容器。Sidecar 以 Pod 的 ServiceAccount 为可信身份认证连接 OpenBao，拉取指定凭证并按模板渲染为文件，写入业务容器共享的内存卷（`/vault/secrets`）。相较 ESO 同步生成 K8S Secret 的方式，Agent Injector 无需落地 Secret，凭证仅驻留内存卷；Sidecar 会周期性重新渲染文件实现自动轮转。
 
@@ -336,7 +334,7 @@ Agent Injector 默认将私钥渲染为文件供业务读取。如业务侧确�
 
 > **注意**：该方式仅是在文件的基础上「额外」把私钥导入了一份到环境变量，`/vault/secrets/mysql-env` 文件依然存在于内存卷中并不会消失。如业务不希望私钥以文件形态留存，可在 `source` 之后自行删除该文件再拉起业务进程，例如：`args: ["source /vault/secrets/mysql-env && rm -f /vault/secrets/mysql-env && exec /app/app-server"]`。需注意文件删除后，凭证轮转时该 env 文件虽会被 Sidecar 重新渲染，但业务进程不会自动重新 `source`，因此该做法更适用于不依赖私钥热轮转的场景。
 
-## 第三方组件凭证消费
+## 业务第三方组件凭证消费
 
 前述 ESO 与 Agent Injector 方案面向可集成 KMS SDK 的业务应用，凭证以密文信封（`envelope`）+ 私钥（`private_key`）形式下发，由 SDK 在运行时完成二次解密得到明文。而对于无法接入 KMS SDK 的第三方组件（如数据库、中间件、开源系统等），KMS 支持以**明文形式**直接下发凭证：此时凭证的 `private_key` 字段为空，`envelope` 字段直接存放凭证明文，组件挂载后无需二次解密即可直接消费。
 
