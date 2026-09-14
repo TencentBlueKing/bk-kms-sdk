@@ -162,12 +162,30 @@ spec:
       server: "https://openbao.bk-kms.svc:8200"
       path: "secret"
       version: "v2"
+      # 以下 TLS / mTLS 配置仅在 OpenBao 正式环境开启了证书时才需要，默认（未开启 TLS）可整段删除。
+      # # TLS：验证 OpenBao 服务端证书（OpenBao 开启 TLS 时使用，OpenBao Secret 需集群运维部署预先准备）
+      # caProvider:
+      #   type: "Secret"
+      #   name: "openbao-tls"
+      #   key: "ca.crt"
+      #   namespace: "app-prod"
+      # # mTLS：ESO 提供客户端证书（OpenBao 要求客户端双向认证时使用, OpenBao Secret 需集群运维部署预先准备）
+      # clientTls:
+      #   certSecretRef:
+      #     name: "openbao-client-tls"
+      #     key: "tls.crt"
+      #     namespace: "app-prod"
+      #   keySecretRef:
+      #     name: "openbao-client-tls"
+      #     key: "tls.key"
+      #     namespace: "app-prod"
       auth:
         kubernetes:
           mountPath: "kubernetes"
           role: "app-prod-reader"
           serviceAccountRef:
             name: "app-prod-sa"
+            namespace: app-prod
 ```
 
 **2. ExternalSecret —— 同步指定凭证生成 K8S Secret: **
