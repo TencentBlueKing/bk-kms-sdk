@@ -13,36 +13,32 @@
 # of the project delivered to anyone in the future.
 #
 
-"""Credential-envelope decoding and local hybrid decryption."""
+"""Envelope decoding and local hybrid decryption."""
 
 import base64
 import binascii
 from collections.abc import Mapping
 from typing import Any
 
+from ._crypto import AsymmetricType, CryptoMode, SymmetricType, decrypt_asymmetric, decrypt_symmetric
 from ._json import loads
-from .crypto import decrypt_asymmetric, decrypt_symmetric
-from .exceptions import CryptoBackendUnavailableError, CryptoError, EnvelopeDecodeError, ValidationError
-from .models import AsymmetricType, ConsumeEnvelope, ConsumeResult, CryptoMode, SymmetricType
+from .exceptions import CryptoBackendUnavailableError, CryptoError, EnvelopeDecodeError
 
 
-def decrypt_envelope(envelope: ConsumeEnvelope) -> list[ConsumeResult]:
-    """Decrypt and validate all per-credential results in an envelope.
+def decrypt(envelope: str, private_key: str) -> str:
+    """Decrypt a Base64 envelope using its matching Base64 PEM private key.
 
-    Unsupported optional crypto backends remain distinguishable; malformed
-    envelopes and other cryptographic failures are reported as decode errors.
-
-    :param envelope: Encrypted response and matching request-scoped private key.
-    :return: Validated per-credential results decoded from the envelope.
-    :rtype: list[ConsumeResult]
-    :raises CryptoBackendUnavailableError: If the selected optional crypto backend is unavailable.
-    :raises EnvelopeDecodeError: If the envelope is malformed, unsupported, or cannot be decrypted.
+    Return the original UTF-8 plaintext without parsing its contents.
+    Malformed inputs and decryption failures raise EnvelopeDecodeError;
+    an unavailable optional GM backend raises CryptoBackendUnavailableError.
     """
 
-    if not envelope.envelope or not envelope.private_key:
-        raise EnvelopeDecodeError("envelope and private key cannot be empty")
+    if not isinstance(envelope, str) or not envelope:
+        raise EnvelopeDecodeError("envelope must be a non-empty string")
+    if not isinstance(private_key, str) or not private_key:
+        raise EnvelopeDecodeError("private key must be a non-empty string")
 
-    payload = _decode_envelope(envelope.envelope)
+    payload = _decode_envelope(envelope)
     try:
         asymmetric_type = AsymmetricType(_required_string(payload, "asymmetric_type"))
         symmetric_type = SymmetricType(_required_string(payload, "symmetric_type"))
@@ -53,7 +49,7 @@ def decrypt_envelope(envelope: ConsumeEnvelope) -> list[ConsumeResult]:
         raise EnvelopeDecodeError("envelope contains an unsupported algorithm") from exc
 
     try:
-        symmetric_key = decrypt_asymmetric(encrypted_key, asymmetric_type, envelope.private_key)
+        symmetric_key = decrypt_asymmetric(encrypted_key, asymmetric_type, private_key)
         plaintext = decrypt_symmetric(ciphertext, symmetric_type, symmetric_mode, symmetric_key)
     except CryptoBackendUnavailableError:
         raise
@@ -61,21 +57,9 @@ def decrypt_envelope(envelope: ConsumeEnvelope) -> list[ConsumeResult]:
         raise EnvelopeDecodeError("failed to decrypt credential envelope") from exc
 
     try:
-        raw_results = loads(plaintext)
-    except (UnicodeDecodeError, ValueError) as exc:
-        raise EnvelopeDecodeError("decrypted credential results are not valid JSON") from exc
-    if not isinstance(raw_results, list):
-        raise EnvelopeDecodeError("decrypted credential results must be a JSON array")
-
-    results: list[ConsumeResult] = []
-    for item in raw_results:
-        if not isinstance(item, Mapping):
-            raise EnvelopeDecodeError("credential result must be a JSON object")
-        try:
-            results.append(ConsumeResult.from_wire(item))
-        except ValidationError as exc:
-            raise EnvelopeDecodeError("credential result contains invalid fields") from exc
-    return results
+        return plaintext.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise EnvelopeDecodeError("decrypted plaintext is not valid UTF-8") from exc
 
 
 def _decode_envelope(value: str) -> Mapping[str, Any]:

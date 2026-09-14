@@ -19,21 +19,13 @@ from pathlib import Path
 
 import pytest
 
-from bk_kms import AsymmetricType, CryptoError, CryptoMode, SymmetricType
-from bk_kms.crypto import decrypt_asymmetric, decrypt_symmetric, generate_key_pair
+from bk_kms import CryptoError
+from bk_kms._crypto import AsymmetricType, CryptoMode, SymmetricType, decrypt_asymmetric, decrypt_symmetric
 
 FIXTURE = json.loads((Path(__file__).parents[1] / "fixtures" / "interop_vectors.json").read_text(encoding="utf-8"))
 PYTHON_KEY_FIXTURE = json.loads(
     (Path(__file__).parents[1] / "fixtures" / "python_key_interop_vectors.json").read_text(encoding="utf-8")
 )
-
-
-def test_rsa_key_pair_matches_go_wire_encoding() -> None:
-    key_pair = generate_key_pair(AsymmetricType.RSA)
-
-    assert base64.b64decode(key_pair.public_key).startswith(b"-----BEGIN PUBLIC KEY-----")
-    assert base64.b64decode(key_pair.private_key).startswith(b"-----BEGIN RSA PRIVATE KEY-----")
-    assert key_pair.private_key not in repr(key_pair)
 
 
 def test_rsa_key_generated_by_python_is_accepted_by_go() -> None:
@@ -116,17 +108,17 @@ def test_rsa_rejects_invalid_private_key_pem() -> None:
 
 
 def test_rsa_wraps_decryption_failure() -> None:
-    key_pair = generate_key_pair(AsymmetricType.RSA)
+    private_key = FIXTURE["vectors"]["rsa_aes_cbc"]["private_key"]
     invalid_ciphertext = base64.b64encode(b"not-an-rsa-ciphertext").decode()
 
     with pytest.raises(CryptoError, match="decrypt RSA ciphertext"):
-        decrypt_asymmetric(invalid_ciphertext, AsymmetricType.RSA, key_pair.private_key)
+        decrypt_asymmetric(invalid_ciphertext, AsymmetricType.RSA, private_key)
 
 
 def test_rsa_decrypt_passes_bk_kms_options_to_bkcrypto(monkeypatch: pytest.MonkeyPatch) -> None:
     from bkcrypto import constants
 
-    from bk_kms.crypto import bkcrypto as backend
+    from bk_kms import _crypto as backend
 
     captured: dict[str, object] = {}
 
@@ -163,7 +155,7 @@ def test_aes_decrypt_passes_mode_and_padding_to_bkcrypto(
     mode: CryptoMode,
     expected_padding: str,
 ) -> None:
-    from bk_kms.crypto import bkcrypto as backend
+    from bk_kms import _crypto as backend
 
     captured: dict[str, object] = {}
 
