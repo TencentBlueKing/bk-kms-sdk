@@ -14,14 +14,16 @@
 #
 
 import base64
-import importlib
+import builtins
 import json
+import sys
 from pathlib import Path
+from types import ModuleType
 
 import pytest
 
-from bk_kms import AsymmetricType, CryptoBackendUnavailableError, CryptoError, CryptoMode, SymmetricType
-from bk_kms.crypto import decrypt_asymmetric, decrypt_symmetric, generate_key_pair
+from bk_kms import CryptoBackendUnavailableError, CryptoError
+from bk_kms._crypto import AsymmetricType, CryptoMode, SymmetricType, decrypt_asymmetric, decrypt_symmetric
 
 FIXTURE = json.loads((Path(__file__).parents[1] / "fixtures" / "interop_vectors.json").read_text(encoding="utf-8"))
 PYTHON_KEY_FIXTURE = json.loads(
@@ -29,19 +31,6 @@ PYTHON_KEY_FIXTURE = json.loads(
 )
 
 gm = pytest.mark.gm
-
-
-@gm
-def test_sm2_key_pair_matches_go_wire_encoding() -> None:
-    key_pair = generate_key_pair(AsymmetricType.SM2)
-
-    public_pem = base64.b64decode(key_pair.public_key)
-    assert public_pem.startswith(b"-----BEGIN PUBLIC KEY-----")
-    public_der = base64.b64decode(b"".join(public_pem.splitlines()[1:-1]))
-    # SPKI algorithm is id-ecPublicKey (1.2.840.10045.2.1), with the SM2 curve
-    # (1.2.156.10197.1.301), not an SM2 algorithm OID in place of id-ecPublicKey.
-    assert public_der.startswith(bytes.fromhex("3059301306072a8648ce3d020106082a811ccf5501822d"))
-    assert base64.b64decode(key_pair.private_key).startswith(b"-----BEGIN PRIVATE KEY-----")
 
 
 @gm
@@ -113,7 +102,7 @@ def test_sm4_decrypt_explicitly_disables_bkcrypto_padding(
 ) -> None:
     from bkcrypto import constants
 
-    from bk_kms.crypto import bkcrypto as backend
+    from bk_kms import _crypto as backend
 
     captured: dict[str, object] = {}
 
@@ -126,11 +115,9 @@ def test_sm4_decrypt_explicitly_disables_bkcrypto_padding(
             captured["ciphertext"] = ciphertext
             return b"plaintext\x07\x07\x07\x07\x07\x07\x07" if mode is CryptoMode.CBC else b"plaintext"
 
-    monkeypatch.setattr(
-        backend,
-        "_load_gm_backend",
-        lambda: (object, FakeSM4, constants, object),
-    )
+    module = ModuleType("bkcrypto.symmetric.ciphers.sm4")
+    module.SM4SymmetricCipher = FakeSM4
+    monkeypatch.setitem(sys.modules, module.__name__, module)
     raw = b"\x00" * 16 + (b"\x00" * 16 if mode is CryptoMode.CBC else b"payload")
     ciphertext = base64.b64encode(raw).decode("ascii")
 
@@ -159,38 +146,72 @@ def test_sm4_rejects_ciphertext_without_payload(mode: CryptoMode, raw: bytes) ->
 
 
 def test_missing_gm_backend_does_not_affect_standard_crypto(monkeypatch: pytest.MonkeyPatch) -> None:
-    from bk_kms.crypto import bkcrypto as backend
 
-    original_import_module = importlib.import_module
+    original_import = builtins.__import__
 
-    def reject_gm_dependency(name: str):
-        if name.startswith("tongsuopy"):
+    def reject_gm_dependency(name: str, *args, **kwargs):
+        if name in ("bkcrypto.asymmetric.ciphers.sm2", "bkcrypto.symmetric.ciphers.sm4"):
             raise ModuleNotFoundError(name)
-        return original_import_module(name)
+        return original_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(backend.importlib, "import_module", reject_gm_dependency)
+    monkeypatch.setattr(builtins, "__import__", reject_gm_dependency)
 
     with pytest.raises(CryptoBackendUnavailableError, match=r"bk-kms-sdk\[gm\]"):
-        generate_key_pair(AsymmetricType.SM2)
+        decrypt_asymmetric(
+            PYTHON_KEY_FIXTURE["vectors"]["sm2"]["ciphertext"],
+            AsymmetricType.SM2,
+            PYTHON_KEY_FIXTURE["vectors"]["sm2"]["private_key"],
+        )
 
-    assert generate_key_pair(AsymmetricType.RSA).public_key
+    test_rsa_vector = PYTHON_KEY_FIXTURE["vectors"]["rsa"]
+    assert decrypt_asymmetric(
+        test_rsa_vector["ciphertext"], AsymmetricType.RSA, test_rsa_vector["private_key"]
+    ) == base64.b64decode(PYTHON_KEY_FIXTURE["plaintext_b64"])
 
 
 def test_broken_native_gm_backend_preserves_original_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    from bk_kms.crypto import bkcrypto as backend
 
     native_error = OSError("missing native library")
 
-    original_import_module = importlib.import_module
+    original_import = builtins.__import__
 
-    def reject_gm_dependency(name: str):
-        if name.startswith("tongsuopy"):
+    def reject_gm_dependency(name: str, *args, **kwargs):
+        if name in ("bkcrypto.asymmetric.ciphers.sm2", "bkcrypto.symmetric.ciphers.sm4"):
             raise native_error
-        return original_import_module(name)
+        return original_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(backend.importlib, "import_module", reject_gm_dependency)
+    monkeypatch.setattr(builtins, "__import__", reject_gm_dependency)
 
     with pytest.raises(CryptoBackendUnavailableError) as exc_info:
-        generate_key_pair(AsymmetricType.SM2)
+        decrypt_asymmetric(
+            PYTHON_KEY_FIXTURE["vectors"]["sm2"]["ciphertext"],
+            AsymmetricType.SM2,
+            PYTHON_KEY_FIXTURE["vectors"]["sm2"]["private_key"],
+        )
 
     assert exc_info.value.__cause__ is native_error
+
+
+@gm
+@pytest.mark.parametrize(
+    ("vector_name", "unused_module"),
+    [
+        ("sm2_aes_cbc", "bkcrypto.symmetric.ciphers.sm4"),
+        ("rsa_sm4_cbc", "bkcrypto.asymmetric.ciphers.sm2"),
+    ],
+)
+def test_decrypt_loads_only_required_gm_algorithm(
+    monkeypatch: pytest.MonkeyPatch, vector_name: str, unused_module: str
+) -> None:
+    from bk_kms import decrypt
+
+    original_import = builtins.__import__
+
+    def reject_unused_algorithm(name: str, *args, **kwargs):
+        if name == unused_module:
+            raise ModuleNotFoundError(name)
+        return original_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", reject_unused_algorithm)
+    vector = FIXTURE["vectors"][vector_name]
+    assert decrypt(vector["envelope"], vector["private_key"]) == FIXTURE["plaintext"]

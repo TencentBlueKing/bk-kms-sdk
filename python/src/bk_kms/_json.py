@@ -19,31 +19,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from .exceptions import ValidationError
-
 _UTF8_BOM = b"\xef\xbb\xbf"
-
-
-def dumps_bytes(value: Any) -> bytes:
-    """Encode compact UTF-8 JSON using the protocol's required escaping rules."""
-
-    try:
-        encoded = json.dumps(
-            value,
-            ensure_ascii=False,
-            allow_nan=False,
-            separators=(",", ":"),
-        )
-    except (TypeError, ValueError) as exc:
-        raise ValidationError("value is not JSON serializable") from exc
-    return (
-        encoded.replace("&", "\\u0026")
-        .replace("<", "\\u003c")
-        .replace(">", "\\u003e")
-        .replace("\u2028", "\\u2028")
-        .replace("\u2029", "\\u2029")
-        .encode("utf-8")
-    )
 
 
 def loads(value: Any) -> Any:

@@ -16,18 +16,12 @@
 import ast
 from pathlib import Path
 
-CRYPTO_DIR = Path(__file__).parents[2] / "src" / "bk_kms" / "crypto"
-
-
-def test_crypto_package_has_one_bkcrypto_backend_module() -> None:
-    assert (CRYPTO_DIR / "bkcrypto.py").is_file()
-    assert not (CRYPTO_DIR / "standard.py").exists()
-    assert not (CRYPTO_DIR / "gm.py").exists()
+PACKAGE_DIR = Path(__file__).parents[2] / "src" / "bk_kms"
 
 
 def test_production_crypto_imports_no_cryptography_cipher_primitives() -> None:
     forbidden: list[str] = []
-    for source_file in CRYPTO_DIR.glob("*.py"):
+    for source_file in PACKAGE_DIR.rglob("*.py"):
         tree = ast.parse(source_file.read_text(encoding="utf-8"), filename=str(source_file))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):

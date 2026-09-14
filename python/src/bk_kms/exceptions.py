@@ -16,59 +16,10 @@
 """Stable exception hierarchy exposed by the BK-KMS SDK."""
 
 from collections.abc import Sequence
-from typing import Optional
 
 
 class BKMSException(Exception):
     """Base exception for the BK-KMS SDK."""
-
-
-class ConfigurationError(BKMSException):
-    """Raised when client configuration is invalid."""
-
-
-class ValidationError(BKMSException):
-    """Raised when a request or model value is invalid."""
-
-
-class ClientClosedError(BKMSException):
-    """Raised when a closed client is used."""
-
-
-class TransportError(BKMSException):
-    """Raised when an HTTP request cannot be completed."""
-
-
-class ResponseDecodeError(BKMSException):
-    """Raised when an HTTP response cannot be decoded."""
-
-
-class KMSRequestError(BKMSException):
-    """Raised when KMS rejects a request.
-
-    :param message: Human-readable failure description without request secrets.
-    :param status_code: HTTP status code returned by KMS or API Gateway.
-    :param code: Optional KMS application error code.
-    :param request_id: Optional request identifier used for troubleshooting.
-    """
-
-    def __init__(
-        self,
-        message: str,
-        *,
-        status_code: int,
-        code: Optional[int] = None,
-        request_id: Optional[str] = None,
-    ) -> None:
-        super().__init__(message)
-        self.message = message
-        self.status_code = status_code
-        self.code = code
-        self.request_id = request_id
-
-
-class ClockSkewError(KMSRequestError):
-    """Raised when KMS reports clock skew and correction is not possible."""
 
 
 class CryptoError(BKMSException):

@@ -13,33 +13,20 @@
 # of the project delivered to anyone in the future.
 #
 
-"""Consume and decrypt credentials directly from an internal BK-KMS service."""
+"""Read an envelope from a file and its private key from the environment."""
 
-from bk_kms import Client
+import os
+from pathlib import Path
+
+from bk_kms import decrypt
 
 
 def main() -> None:
-    """Fetch a batch and inspect each per-credential outcome."""
-
-    with Client(
-        base_url="http://kms.service:23681",
-        app_code="your-app-code",
-    ) as client:
-        results = client.consume_credential(
-            access_key="your-access-key",
-            secret_key="your-secret-key",
-            credential_names=["database", "redis"],
-        )
-
-    for result in results:
-        if not result.ok:
-            print(f"credential {result.credential_id}: code={result.err_code} message={result.err_msg}")
-            continue
-
-        # Authentication fields are intentionally not printed; treat them as secrets.
-        credential = result.credential
-        if credential is not None:
-            print(f"credential {result.credential_id}: name={credential.name} type={credential.type}")
+    envelope = Path("envelope.txt").read_text(encoding="utf-8").strip()
+    private_key = os.environ["BK_KMS_PRIVATE_KEY"].strip()
+    plaintext = decrypt(envelope, private_key)
+    # Pass plaintext to the application; do not log it.
+    del plaintext
 
 
 if __name__ == "__main__":
