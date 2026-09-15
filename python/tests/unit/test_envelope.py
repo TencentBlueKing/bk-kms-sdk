@@ -14,19 +14,17 @@
 #
 
 import base64
-import importlib
+import builtins
 import json
 from pathlib import Path
 
 import pytest
 
 from bk_kms import (
-    ConsumeEnvelope,
-    CredentialType,
     CryptoBackendUnavailableError,
     CryptoError,
     EnvelopeDecodeError,
-    decrypt_envelope,
+    decrypt,
 )
 
 FIXTURE = json.loads((Path(__file__).parents[1] / "fixtures" / "interop_vectors.json").read_text(encoding="utf-8"))
@@ -46,36 +44,33 @@ def _encode_envelope(payload: object) -> str:
         for name in sorted(FIXTURE["vectors"])
     ],
 )
-def test_decrypt_envelope_parses_go_results(name: str) -> None:
+def test_decrypt_returns_go_plaintext(name: str) -> None:
     vector = FIXTURE["vectors"][name]
 
-    results = decrypt_envelope(ConsumeEnvelope(vector["envelope"], vector["private_key"]))
-
-    assert len(results) == 2
-    assert results[0].ok
-    assert results[0].credential is not None
-    assert results[0].credential.type is CredentialType.SINGLE_PASSWORD
-    assert results[0].credential.auth_info.password == "secret"
-    assert not results[1].ok
-    assert results[1].credential is None
+    assert decrypt(vector["envelope"], vector["private_key"]) == FIXTURE["plaintext"]
 
 
 @pytest.mark.parametrize(
-    "envelope",
+    ("envelope", "private_key"),
     [
-        ConsumeEnvelope("", "private"),
-        ConsumeEnvelope("invalid-base64", "private"),
-        ConsumeEnvelope("e30=", "private"),
+        ("", "private"),
+        ("e30=", ""),
+        (None, "private"),
+        ("e30=", None),
+        (123, "private"),
+        ("e30=", 123),
+        ("invalid-base64", "private"),
+        ("e30=", "private"),
     ],
 )
-def test_decrypt_envelope_rejects_malformed_input(envelope: ConsumeEnvelope) -> None:
+def test_decrypt_envelope_rejects_malformed_input(envelope: object, private_key: object) -> None:
     with pytest.raises(EnvelopeDecodeError):
-        decrypt_envelope(envelope)
+        decrypt(envelope, private_key)
 
 
 def test_decrypt_envelope_rejects_non_object_payload() -> None:
     with pytest.raises(EnvelopeDecodeError, match="JSON object"):
-        decrypt_envelope(ConsumeEnvelope(_encode_envelope([]), "private"))
+        decrypt(_encode_envelope([]), "private")
 
 
 def test_decrypt_envelope_rejects_unsupported_algorithm() -> None:
@@ -88,7 +83,7 @@ def test_decrypt_envelope_rejects_unsupported_algorithm() -> None:
     }
 
     with pytest.raises(EnvelopeDecodeError, match="unsupported algorithm"):
-        decrypt_envelope(ConsumeEnvelope(_encode_envelope(payload), "private"))
+        decrypt(_encode_envelope(payload), "private")
 
 
 def test_decrypt_envelope_wraps_invalid_symmetric_key_length(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -98,65 +93,81 @@ def test_decrypt_envelope_wraps_invalid_symmetric_key_length(monkeypatch: pytest
     monkeypatch.setattr(envelope_module, "decrypt_asymmetric", lambda *args: b"short")
 
     with pytest.raises(EnvelopeDecodeError, match="failed to decrypt") as exc_info:
-        decrypt_envelope(ConsumeEnvelope(vector["envelope"], vector["private_key"]))
+        decrypt(vector["envelope"], vector["private_key"])
 
     assert isinstance(exc_info.value.__cause__, CryptoError)
 
 
-@pytest.mark.parametrize(
-    ("plaintext", "message"),
-    [
-        (b"not-json", "not valid JSON"),
-        (b"{}", "JSON array"),
-        (b"[1]", "JSON object"),
-    ],
-)
-def test_decrypt_envelope_rejects_invalid_decrypted_results(
-    monkeypatch: pytest.MonkeyPatch,
-    plaintext: bytes,
-    message: str,
-) -> None:
+@pytest.mark.parametrize("plaintext", [b"not-json", b"{}", b"[1]", b"", ' {"密码": "值"} \n'.encode()])
+def test_decrypt_preserves_plaintext(monkeypatch: pytest.MonkeyPatch, plaintext: bytes) -> None:
     import bk_kms.envelope as envelope_module
 
     vector = FIXTURE["vectors"]["rsa_aes_cbc"]
-    monkeypatch.setattr(envelope_module, "decrypt_asymmetric", lambda *args: b"0123456789abcdef")
     monkeypatch.setattr(envelope_module, "decrypt_symmetric", lambda *args: plaintext)
+    assert decrypt(vector["envelope"], vector["private_key"]) == plaintext.decode("utf-8")
 
-    with pytest.raises(EnvelopeDecodeError, match=message):
-        decrypt_envelope(ConsumeEnvelope(vector["envelope"], vector["private_key"]))
+
+def test_decrypt_rejects_non_utf8_plaintext(monkeypatch: pytest.MonkeyPatch) -> None:
+    import bk_kms.envelope as envelope_module
+
+    vector = FIXTURE["vectors"]["rsa_aes_cbc"]
+    monkeypatch.setattr(envelope_module, "decrypt_symmetric", lambda *args: b"\xff")
+    with pytest.raises(EnvelopeDecodeError, match="UTF-8"):
+        decrypt(vector["envelope"], vector["private_key"])
 
 
 def test_decrypt_envelope_preserves_missing_backend_error(monkeypatch: pytest.MonkeyPatch) -> None:
-    from bk_kms.crypto import bkcrypto as backend
 
     vector = FIXTURE["vectors"]["sm2_sm4_cbc"]
-    original_import_module = importlib.import_module
+    original_import = builtins.__import__
 
-    def reject_gm_dependency(name: str):
-        if name.startswith("tongsuopy"):
+    def reject_gm_dependency(name: str, *args, **kwargs):
+        if name in ("bkcrypto.asymmetric.ciphers.sm2", "bkcrypto.symmetric.ciphers.sm4"):
             raise ModuleNotFoundError(name)
-        return original_import_module(name)
+        return original_import(name, *args, **kwargs)
 
-    monkeypatch.setattr(backend.importlib, "import_module", reject_gm_dependency)
+    monkeypatch.setattr(builtins, "__import__", reject_gm_dependency)
 
     with pytest.raises(CryptoBackendUnavailableError):
-        decrypt_envelope(ConsumeEnvelope(vector["envelope"], vector["private_key"]))
+        decrypt(vector["envelope"], vector["private_key"])
 
 
-def test_decrypt_envelope_wraps_invalid_result_fields(monkeypatch: pytest.MonkeyPatch) -> None:
-    import bk_kms.envelope as envelope_module
+@pytest.mark.parametrize("mode", ["CBC", "CTR"])
+@pytest.mark.parametrize("plaintext", [' {"password": "值"} \n', "plain text", ""])
+def test_decrypt_arbitrary_payload_roundtrip(mode: str, plaintext: str) -> None:
+    from bkcrypto import constants
+    from bkcrypto.asymmetric.ciphers import RSAAsymmetricCipher
+    from bkcrypto.symmetric.ciphers import AESSymmetricCipher
+    from cryptography.hazmat.primitives import hashes
 
     vector = FIXTURE["vectors"]["rsa_aes_cbc"]
-    monkeypatch.setattr(
-        envelope_module,
-        "decrypt_asymmetric",
-        lambda ciphertext, crypto_type, private_key: b"0123456789abcdef",
+    rsa = RSAAsymmetricCipher(
+        private_key_string=base64.b64decode(vector["private_key"]).decode(),
+        padding=constants.RSACipherPadding.PKCS1_OAEP,
+        oaep_hash=hashes.SHA256(),
+        mgf1_hash=hashes.SHA256(),
+        enable_segmented_encryption=False,
     )
-    monkeypatch.setattr(
-        envelope_module,
-        "decrypt_symmetric",
-        lambda ciphertext, crypto_type, mode, key: b'[{"credential_id":1,"err_code":0}]',
+    key = b"0123456789abcdef"
+    aes = AESSymmetricCipher(
+        key=key,
+        mode=constants.SymmetricMode(mode),
+        padding=constants.SymmetricPadding.PKCS7 if mode == "CBC" else constants.SymmetricPadding.NONE,
+        enable_iv=True,
+        iv_size=16,
+        enable_aad=False,
+        encryption_metadata_combination_mode=constants.EncryptionMetadataCombinationMode.BYTES,
     )
-
-    with pytest.raises(EnvelopeDecodeError, match="credential result contains invalid fields"):
-        decrypt_envelope(ConsumeEnvelope(vector["envelope"], vector["private_key"]))
+    payload = {
+        "asymmetric_type": "RSA",
+        "symmetric_type": "AES",
+        "symmetric_mode": mode,
+        "encrypted_key": rsa.encrypt_bytes(key),
+        "ciphertext": aes.encrypt_bytes(plaintext.encode()),
+    }
+    if mode == "CTR" and not plaintext:
+        # Go/C++ and Python require at least one payload byte for CTR.
+        with pytest.raises(EnvelopeDecodeError):
+            decrypt(_encode_envelope(payload), vector["private_key"])
+    else:
+        assert decrypt(_encode_envelope(payload), vector["private_key"]) == plaintext

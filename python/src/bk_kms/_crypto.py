@@ -17,44 +17,64 @@
 
 import base64
 import binascii
-import importlib
 import sys
-from typing import Any, assert_never, cast
+from enum import StrEnum
+from typing import assert_never
 
 from bkcrypto import constants as bkcrypto_constants
 from bkcrypto.asymmetric.ciphers import RSAAsymmetricCipher
 from bkcrypto.symmetric.ciphers import AESSymmetricCipher
 from cryptography.hazmat.primitives import hashes
 
-from ..exceptions import CryptoBackendUnavailableError, CryptoError
-from ..models import CryptoMode
-from .base import KeyPair
+from .exceptions import CryptoBackendUnavailableError, CryptoError
 
 BLOCK_SIZE_BYTES = 16
 
 
-def _rsa_cipher(*, private_key_string: str | None = None) -> RSAAsymmetricCipher:
-    return RSAAsymmetricCipher(
-        private_key_string=private_key_string,
-        padding=bkcrypto_constants.RSACipherPadding.PKCS1_OAEP,
-        oaep_hash=hashes.SHA256(),
-        mgf1_hash=hashes.SHA256(),
-        oaep_label=None,
-        enable_segmented_encryption=False,
-    )
+class AsymmetricType(StrEnum):
+    """Supported asymmetric algorithms."""
+
+    RSA = "RSA"
+    SM2 = "SM2"
 
 
-def generate_rsa_key_pair() -> KeyPair:
-    """Generate the protocol's 2048-bit RSA key pair in Base64 PEM form."""
+class SymmetricType(StrEnum):
+    """Supported symmetric algorithms."""
 
-    try:
-        cipher = _rsa_cipher()
-        return KeyPair(
-            public_key=_encode_pem(cipher.export_public_key()),
-            private_key=_encode_pem(cipher.export_private_key()),
-        )
-    except Exception as exc:
-        raise CryptoError("failed to generate RSA key pair") from exc
+    AES = "AES"
+    SM4 = "SM4"
+
+
+class CryptoMode(StrEnum):
+    """Supported symmetric cipher modes."""
+
+    CBC = "CBC"
+    CTR = "CTR"
+
+
+def decrypt_asymmetric(ciphertext: str, crypto_type: AsymmetricType, private_key: str) -> bytes:
+    """Decrypt an envelope data key with the selected asymmetric algorithm."""
+
+    if crypto_type is AsymmetricType.RSA:
+        return decrypt_rsa(ciphertext, private_key)
+    if crypto_type is AsymmetricType.SM2:
+        return decrypt_sm2(ciphertext, private_key)
+    assert_never(crypto_type)
+
+
+def decrypt_symmetric(
+    ciphertext: str,
+    crypto_type: SymmetricType,
+    mode: CryptoMode,
+    key: bytes,
+) -> bytes:
+    """Decrypt an envelope payload with the selected symmetric algorithm and mode."""
+
+    if crypto_type is SymmetricType.AES:
+        return decrypt_aes(ciphertext, key, mode)
+    if crypto_type is SymmetricType.SM4:
+        return decrypt_sm4(ciphertext, key, mode)
+    assert_never(crypto_type)
 
 
 def decrypt_rsa(ciphertext: str, private_key: str) -> bytes:
@@ -63,7 +83,14 @@ def decrypt_rsa(ciphertext: str, private_key: str) -> bytes:
     _decode_base64(ciphertext, "RSA ciphertext")
     private_key_string = _decode_pem(private_key, "RSA private key")
     try:
-        cipher = _rsa_cipher(private_key_string=private_key_string)
+        cipher = RSAAsymmetricCipher(
+            private_key_string=private_key_string,
+            padding=bkcrypto_constants.RSACipherPadding.PKCS1_OAEP,
+            oaep_hash=hashes.SHA256(),
+            mgf1_hash=hashes.SHA256(),
+            oaep_label=None,
+            enable_segmented_encryption=False,
+        )
     except (TypeError, ValueError) as exc:
         raise CryptoError("failed to decode RSA private key") from exc
 
@@ -104,55 +131,21 @@ def decrypt_aes(ciphertext: str, key: bytes, mode: CryptoMode) -> bytes:
         raise CryptoError(f"failed to decrypt AES-{mode.value} ciphertext") from exc
 
 
-def _load_gm_backend() -> tuple[type[Any], type[Any], Any, Any]:
-    """Import the optional GM backend and preserve its import failure as the cause."""
-
-    try:
-        serialization = importlib.import_module("tongsuopy.crypto.serialization")
-        asymmetric = importlib.import_module("bkcrypto.asymmetric.ciphers")
-        symmetric = importlib.import_module("bkcrypto.symmetric.ciphers")
-        constants = importlib.import_module("bkcrypto.constants")
-        return asymmetric.SM2AsymmetricCipher, symmetric.SM4SymmetricCipher, constants, serialization
-    except (ImportError, OSError) as exc:
-        error = CryptoBackendUnavailableError(
-            backend="bkcrypto",
-            algorithms=("SM2", "SM4"),
-            platform=sys.platform,
-        )
-        raise error from exc
-
-
-def generate_sm2_key_pair() -> KeyPair:
-    """Generate an SM2 key pair in the protocol's Base64 PEM form."""
-
-    sm2_class, _, _, serialization = _load_gm_backend()
-    try:
-        cipher = sm2_class()
-        private_key = serialization.load_pem_private_key(
-            cipher.export_private_key().encode("utf-8"),
-            password=None,
-        )
-        private_pem = private_key.private_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PrivateFormat.PKCS8,
-            encryption_algorithm=serialization.NoEncryption(),
-        )
-        return KeyPair(
-            public_key=_encode_pem(cipher.export_public_key()),
-            private_key=base64.b64encode(private_pem).decode("ascii"),
-        )
-    except Exception as exc:
-        raise CryptoError("failed to generate SM2 key pair") from exc
-
-
 def decrypt_sm2(ciphertext: str, private_key: str) -> bytes:
     """Decrypt a data key with the optional SM2 backend."""
 
     _decode_base64(ciphertext, "SM2 ciphertext")
     private_key_string = _decode_pem(private_key, "SM2 private key")
-    sm2_class, _, _, _ = _load_gm_backend()
     try:
-        return cast(bytes, sm2_class(private_key_string=private_key_string).decrypt_bytes(ciphertext))
+        from bkcrypto.asymmetric.ciphers.sm2 import SM2AsymmetricCipher
+    except (ImportError, OSError) as exc:
+        raise CryptoBackendUnavailableError(
+            backend="bkcrypto",
+            algorithms=("SM2", "SM4"),
+            platform=sys.platform,
+        ) from exc
+    try:
+        return SM2AsymmetricCipher(private_key_string=private_key_string).decrypt_bytes(ciphertext)
     except Exception as exc:
         raise CryptoError("failed to decrypt SM2 ciphertext") from exc
 
@@ -168,18 +161,25 @@ def decrypt_sm4(ciphertext: str, key: bytes, mode: CryptoMode) -> bytes:
         unpad = False
     else:
         assert_never(mode)
-    _, sm4_class, constants, _ = _load_gm_backend()
     try:
-        cipher = sm4_class(
+        from bkcrypto.symmetric.ciphers.sm4 import SM4SymmetricCipher
+    except (ImportError, OSError) as exc:
+        raise CryptoBackendUnavailableError(
+            backend="bkcrypto",
+            algorithms=("SM2", "SM4"),
+            platform=sys.platform,
+        ) from exc
+    try:
+        cipher = SM4SymmetricCipher(
             key=key,
-            mode=constants.SymmetricMode(mode.value),
-            padding=constants.SymmetricPadding.NONE,
+            mode=bkcrypto_constants.SymmetricMode(mode.value),
+            padding=bkcrypto_constants.SymmetricPadding.NONE,
             enable_iv=True,
             iv_size=BLOCK_SIZE_BYTES,
             enable_aad=False,
-            encryption_metadata_combination_mode=constants.EncryptionMetadataCombinationMode.BYTES,
+            encryption_metadata_combination_mode=bkcrypto_constants.EncryptionMetadataCombinationMode.BYTES,
         )
-        plaintext = cast(bytes, cipher.decrypt_bytes(ciphertext))
+        plaintext = cipher.decrypt_bytes(ciphertext)
     except Exception as exc:
         raise CryptoError(f"failed to decrypt SM4-{mode.value} ciphertext") from exc
     return _pkcs7_unpad(plaintext) if unpad else plaintext
@@ -190,10 +190,6 @@ def _decode_base64(value: str, label: str) -> bytes:
         return base64.b64decode(value, validate=True)
     except (binascii.Error, ValueError) as exc:
         raise CryptoError(f"invalid base64 {label}") from exc
-
-
-def _encode_pem(value: str) -> str:
-    return base64.b64encode(value.encode("utf-8")).decode("ascii")
 
 
 def _decode_pem(value: str, label: str) -> str:

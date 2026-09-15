@@ -13,78 +13,17 @@
 # of the project delivered to anyone in the future.
 #
 
-"""Public API for the BK-KMS Python SDK."""
+"""Local envelope decryption for BlueKing KMS."""
 
 from ._version import __version__
-from .client import Client
-from .envelope import decrypt_envelope
-from .exceptions import (
-    BKMSException,
-    ClientClosedError,
-    ClockSkewError,
-    ConfigurationError,
-    CryptoBackendUnavailableError,
-    CryptoError,
-    EnvelopeDecodeError,
-    KMSRequestError,
-    ResponseDecodeError,
-    TransportError,
-    ValidationError,
-)
-from .models import (
-    ERR_CODE_ACCESS_KEY_DISABLED,
-    ERR_CODE_ACCESS_KEY_EXPIRED,
-    ERR_CODE_ACCESS_KEY_NOT_BOUND,
-    ERR_CODE_GENERIC_ERROR,
-    ERR_CODE_NONCE_ALREADY_USED,
-    ERR_CODE_NOT_FOUND,
-    ERR_CODE_OK,
-    ERR_CODE_PERMISSION_DENIED,
-    ERR_CODE_REQUEST_TIME_TOO_SKEWED,
-    ERR_CODE_SIGNATURE_MISMATCH,
-    AsymmetricType,
-    AuthInfo,
-    ConsumeEnvelope,
-    ConsumeResult,
-    Credential,
-    CredentialType,
-    CryptoInfo,
-    CryptoMode,
-    SymmetricType,
-)
+from .envelope import decrypt
+from .exceptions import BKMSException, CryptoBackendUnavailableError, CryptoError, EnvelopeDecodeError
 
 __all__ = [
-    "ERR_CODE_ACCESS_KEY_DISABLED",
-    "ERR_CODE_ACCESS_KEY_EXPIRED",
-    "ERR_CODE_ACCESS_KEY_NOT_BOUND",
-    "ERR_CODE_NONCE_ALREADY_USED",
-    "ERR_CODE_SIGNATURE_MISMATCH",
-    "ERR_CODE_GENERIC_ERROR",
-    "ERR_CODE_NOT_FOUND",
-    "ERR_CODE_OK",
-    "ERR_CODE_PERMISSION_DENIED",
-    "ERR_CODE_REQUEST_TIME_TOO_SKEWED",
-    "AsymmetricType",
-    "AuthInfo",
     "BKMSException",
-    "ClientClosedError",
-    "Client",
-    "ClockSkewError",
-    "ConfigurationError",
-    "ConsumeEnvelope",
-    "ConsumeResult",
-    "Credential",
-    "CredentialType",
     "CryptoBackendUnavailableError",
     "CryptoError",
-    "CryptoInfo",
-    "CryptoMode",
     "EnvelopeDecodeError",
-    "KMSRequestError",
-    "ResponseDecodeError",
-    "SymmetricType",
-    "TransportError",
-    "ValidationError",
     "__version__",
-    "decrypt_envelope",
+    "decrypt",
 ]

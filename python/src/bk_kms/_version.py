@@ -13,25 +13,6 @@
 # of the project delivered to anyone in the future.
 #
 
-"""Package version and its wire-header representation."""
+"""Python package version."""
 
-import re
-
-__version__ = "1.0.0a1"
-
-
-def _format_sdk_version(package_version: str) -> str:
-    """Translate a PEP 440 version into the Go/C++ SDK header spelling."""
-
-    match = re.fullmatch(r"(\d+\.\d+\.\d+)(?:(a|b|rc)(\d+))?", package_version)
-    if match is None:
-        raise ValueError(f"unsupported package version: {package_version}")
-
-    release, label, number = match.groups()
-    if label is None:
-        return f"v{release}"
-    prerelease = {"a": "alpha", "b": "beta", "rc": "rc"}[label]
-    return f"v{release}-{prerelease}.{number}"
-
-
-SDK_VERSION = _format_sdk_version(__version__)
+__version__ = "1.0.0"
