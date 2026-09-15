@@ -33,25 +33,22 @@
 
 ## 前置：KMS 凭证录入
 
-业务侧接入前，平台运维需先在 KMS 控制面录入一条凭证。
-
-凭证的底层存储与消费所需的存储引擎、认证方法、授权策略（Policy/Role 绑定）等均由 KMS 在录入时自动完成，业务与运维无需感知，也无需手动配置底层 OpenBao, 录入方只需提供凭证的基础信息与消费鉴权信息即可。
+业务侧接入前，平台运维需先在 KMS 控制面录入凭证。凭证的底层存储、认证方法、授权策略（Policy/Role 绑定）等均由 KMS 在录入时自动完成，业务与运维无需感知底层存储类型，只需提供凭证基础信息与消费鉴权信息即可。
 
 ### 通过 KMS 接口录入凭证
 
 凭证通过 KMS「创建凭证create_credential」接口录入，核心信息分为三部分：
 
-- **scope（业务范围）**：凭证归属的租户/业务范围，决定凭证的隔离与路径前缀。
+- **scope（业务范围）**：凭证归属的租户/业务范围，决定凭证的隔离、路径前缀与自动生成的消费 role 名称。
 - **metadata（凭证基础信息）**：凭证名称与原文内容等，`value` 需先做混合（信封）加密后再提交。
-- **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount 与角色, `auth` 为一个**列表**，支持为同一凭证配置**多组** role 绑定，每组由一个 `role` 及绑定它的 ServiceAccount 名称/命名空间列表组成。
+- **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount。
 
-其中与业务侧消费直接相关的是 `auth`，列表中每一组的字段如下：
+`auth.service_account` 为一个**列表**，支持为同一凭证配置**多组** ServiceAccount 绑定，每组由 ServiceAccount 名称列表与命名空间列表组成，字段如下：
 
-| 字段                             | 说明                                                                                             | 与消费侧的对应关系                                                           |
-|----------------------------------|--------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------|
-| `role`                           | 绑定这些 ServiceAccount 用于消费凭证的角色名；不传递则使用 `default` 作为角色名                  | 对应 ESO `SecretStore` 的 `role` 与 Injector 注解 `vault.hashicorp.com/role` |
-| `service_account_name_list`      | 允许消费该凭证的 ServiceAccount 名称列表；不传递则不限制 ServiceAccount 名称（任意名称均可消费） | 对应业务 Pod 使用的 ServiceAccount 名称（下文示例中的 `app-prod-sa`）        |
-| `service_account_namespace_list` | 上述 ServiceAccount 所在命名空间列表；不传递则不限制命名空间（任意命名空间均可消费）             | 对应业务 Pod 所在命名空间（下文示例中的 `app-prod`）                         |
+| 字段             | 说明                                                                                             | 与消费侧的对应关系                                                   |
+|------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
+| `name_list`      | 允许消费该凭证的 ServiceAccount 名称列表；不传递则不限制 ServiceAccount 名称（任意名称均可消费） | 对应业务 Pod 使用的 ServiceAccount 名称（下文示例中的 `app-prod-sa`）|
+| `namespace_list` | 上述 ServiceAccount 所在命名空间列表；不传递则不限制命名空间（任意命名空间均可消费）             | 对应业务 Pod 所在命名空间（下文示例中的 `app-prod`）                 |
 
 **录入示例（KMS 创建凭证接口create_credential）:**
 
@@ -63,71 +60,96 @@
     },
     "metadata": {
         "name": "mysql",
+        "alias_name": "MySQL 凭证",
         "value": "BASE64_HYBRID_ENCRYPTED_CONTENT",
         "description": "业务 MySQL 凭证",
         "annotation": ""
     },
-    "auth": [
-        {
-            "role": "app-prod-reader",
-            "service_account_name_list": ["app-prod-sa"],
-            "service_account_namespace_list": ["app-prod"]
-        }
-    ]
+    "auth": {
+        "service_account": [
+            {
+                "name_list": ["app-prod-sa"],
+                "namespace_list": ["app-prod"]
+            }
+        ]
+    }
 }
 ```
 
 > - `value` 需先做混合（信封）加密后再填入，加密方式详见 KMS `get_crypto_info` 接口文档。
-> - `auth` 为列表，可配置多组 role 绑定：如需让不同角色/不同命名空间的 ServiceAccount 消费同一凭证，在列表中追加多组配置即可。
-> - `auth` 中声明的 SA/命名空间/角色，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
+> - 无需指定 role：本例 scope 类型为 `scope`、名称为 `my-scope`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 role 为 `default.scope.my-scope`。
+> - `auth.service_account` 中声明的 SA / 命名空间，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致，否则消费时认证不通过。
 
-凭证录入成功后，凭证在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope，业务名称}/{凭证名称}`（下文示例为 `default/my-scope/mysql`），KMS 会依据 scope 与凭证名录入凭证以供业务进行消费。
+凭证录入成功后，其在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope，业务名称}/{凭证名称}`（本例为 `default/my-scope/mysql`），供业务进行消费。
 
 ### 通过 kmsctl 命令行管理工具录入凭证
 
 除直接调用「创建凭证create_credential）」接口外，KMS 提供命令行工具 `kmsctl` 用于录入与维护凭证。
 
-该工具随 KMS 镜像分发（默认位于 `/data/kms/tools/kmsctl`），支持以一份 YAML 声明式地管理业务（scope）及其下的凭证：scope 不存在则创建、存在则更新；凭证按 `name` 匹配，不存在则创建、存在则更新。凭证的 `value` 传入原文明文，工具会在 apply 时自动完成混合（信封）加密。
+该工具随 KMS 镜像分发（默认位于 `/data/kms/tools/kmsctl`），支持以一份 YAML 声明式地管理业务（scope）及其下的凭证, 凭证的 `value` 传入原文明文，工具会在 apply 时自动完成混合（信封）加密。
 
-**1. 编写凭证声明文件（如 `my_scope_credential.yaml`）:**
+**1. 编写凭证声明文件（如 `my_credential.yaml`）:**
 
 ```yaml
+# 声明式地管理一个 scope 及其下的凭证：
+# - scope 不存在则创建，存在则按下面的字段更新
+# - 凭证按 name 匹配，不存在则创建，存在则更新（凭证的 value 每次都必须提供）
 scope:
   # 资源范围类型，当前可选值：scope
+  #
   type: scope
-  # 资源范围名称（对应消费路径中的业务名）
+  # 资源范围名称
+  #
   name: my-scope
+  # 资源范围别名，仅用于展示，不参与唯一性, 不填则默认使用 name
+  #
+  aliasName: 我的资源范围
+  # 资源范围描述
+  #
   description: example scope
-  # 该 scope 下的凭证列表
+  # 资源范围内的凭证列表
+  #
   credentials:
     # 凭证名称，同一 scope 下唯一，作为匹配创建/更新的依据
+    #
     - name: mysql
-      # 凭证原文（明文），apply 时自动做混合(信封)加密
+      # 凭证别名，仅用于展示，不参与唯一性；不填则默认使用 name
+      #
+      aliasName: MySQL 凭证
+      # 凭证原文（明文），apply 时会自动做混合(信封)加密
+      #
       value: 'change-me'
-      description: 业务 MySQL 凭证
+      # 凭证描述
+      #
+      description: mysql credential
+      # 凭证自定义注解
+      #
       annotation: ""
-      # 凭证的鉴权配置列表，支持多组配置，每组由一个 role 与绑定它的 ServiceAccount 名称/命名空间组成
+      # 凭证的鉴权配置
+      #
       auth:
-          # 绑定这些 ServiceAccount 用于消费凭证的角色名
-        - role: app-prod-reader
-          # 允许消费该凭证的 ServiceAccount 名称列表
-          service_account_name_list:
-            - app-prod-sa
-          # 上述 ServiceAccount 所在命名空间列表
-          service_account_namespace_list:
-            - app-prod
+        # 绑定的 service account 列表，支持多组
+        #
+        serviceAccount:
+            # 允许消费该凭证的 service account 名称列表
+            #
+          - nameList:
+              - app-prod-sa
+            # 允许消费该凭证的 service account 命名空间列表
+            #
+            namespaceList:
+              - app-prod
 ```
 
 **2. 应用声明，完成录入:**
 
 ```bash
-kmsctl apply -f my_scope_credential.yaml
+kmsctl apply -f my_credential.yaml
 ```
 
-其中凭证 `auth` 列表的每一组 `role`、`service_account_name_list`、`service_account_namespace_list` 声明一组消费鉴权信息，对应「创建凭证」接口 `auth` 字段，务必与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 及 `role` 保持一致，否则消费时认证不通过。
+其中凭证 `auth.serviceAccount` 列表的每一组 `nameList`、`namespaceList` 对应「创建凭证」接口的 `auth.service_account` 字段，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致。role 由 KMS 依据 scope 自动生成（本例为 `default.scope.my-scope`）。
 
-> - `auth` 为列表，支持配置多组 role 绑定：如需让不同角色/不同命名空间的 ServiceAccount 消费同一凭证，在列表中追加多组配置即可。
-> - 每组内三项消费鉴权字段均为可选：不填写 `service_account_name_list` / `service_account_namespace_list` 则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）；不填写 `role` 则使用 `default` 作为角色名。
+> 每组内两项字段均为可选：不填写 `nameList` / `namespaceList` 则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）。
 
 更多子命令及参数（`create`/`list`/`get`/`update`/`delete` 等）可执行 `kmsctl --help` 查看。
 
@@ -182,7 +204,8 @@ spec:
       auth:
         kubernetes:
           mountPath: "kubernetes"
-          role: "app-prod-reader"
+          # 认证角色：填 KMS 自动生成的 role（tenant_id.scope_type.scope_name），本例为 default.scope.my-scope
+          role: "default.scope.my-scope"
           serviceAccountRef:
             name: "app-prod-sa"
             namespace: app-prod
@@ -298,7 +321,7 @@ spec:
         app: app-server
       annotations:
         vault.hashicorp.com/agent-inject: "true"                                                         # 开启 Agent Injector 注入，Injector 据此为 Pod 注入 Agent Sidecar
-        vault.hashicorp.com/role: "app-prod-reader"                                                      # 认证角色，对应 OpenBao 中为业务 SA 绑定的 kubernetes auth role
+        vault.hashicorp.com/role: "default.scope.my-scope"                                              # 认证角色，填 KMS 自动生成的 role（tenant_id.scope_type.scope_name）
         vault.hashicorp.com/service: "https://openbao.bk-kms.svc:8200"                                   # 蓝鲸 KMS 托管的 OpenBAO 服务地址
         vault.hashicorp.com/agent-inject-template-static-secret-render-interval: "1h"                    # 轮转周期: KV v2 属非租约密钥，Sidecar 按此间隔重新渲染文件实现自动轮转 (不配置时默认 5m)
         vault.hashicorp.com/agent-inject-secret-mysql-private-key: "secret/data/default/my-scope/mysql"  # 声明要注入的凭证私钥文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope，业务名称}/{凭证名称}
