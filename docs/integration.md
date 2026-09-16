@@ -40,7 +40,7 @@
 凭证通过 KMS「创建凭证create_credential」接口录入，核心信息分为三部分：
 
 - **scope（业务范围）**：凭证归属的租户/业务范围，决定凭证的隔离、路径前缀与自动生成的消费 role 名称。
-- **metadata（凭证基础信息）**：凭证名称与原文内容等，`value` 需先做混合（信封）加密后再提交。
+- **metadata（凭证基础信息）**：凭证类型、名称与原文内容等，`value` 需先做混合（信封）加密后再提交。
 - **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount。
 
 `auth.service_account` 为一个**列表**，支持为同一凭证配置**多组** ServiceAccount 绑定，每组由 ServiceAccount 名称列表与命名空间列表组成，字段如下：
@@ -59,6 +59,7 @@
         "scope_id": 1
     },
     "metadata": {
+        "type": "secret",
         "name": "mysql",
         "alias_name": "MySQL 凭证",
         "value": "BASE64_HYBRID_ENCRYPTED_CONTENT",
@@ -77,7 +78,7 @@
 ```
 
 > - `value` 需先做混合（信封）加密后再填入，加密方式详见 KMS `get_crypto_info` 接口文档。
-> - 无需指定 role：本例 scope 类型为 `scope`、名称为 `my-scope`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 role 为 `default.scope.my-scope`。
+> - `消费role` 本例 scope 类型为 `scope`、名称为 `my-scope`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 凭证消费 role 为 `default.scope.my-scope`。
 > - `auth.service_account` 中声明的 SA / 命名空间，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致，否则消费时认证不通过。
 
 凭证录入成功后，其在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope 类型}/{scope 名称}/{凭证名称}`（本例为 `default/scope/my-scope/mysql`），供业务进行消费。
@@ -93,7 +94,7 @@
 ```yaml
 # 声明式地管理一个 scope 及其下的凭证：
 # - scope 不存在则创建，存在则按下面的字段更新
-# - 凭证按 name 匹配，不存在则创建，存在则更新（凭证的 value 每次都必须提供）
+# - 凭证按 type + name 匹配，不存在则创建，存在则更新（凭证的 value 每次都必须提供）
 scope:
   # 资源范围类型，当前可选值：scope
   #
@@ -110,9 +111,12 @@ scope:
   # 资源范围内的凭证列表
   #
   credentials:
-    # 凭证名称，同一 scope 下唯一，作为匹配创建/更新的依据
+    # 凭证类型，不填则默认 secret
     #
-    - name: mysql
+    - type: secret
+      # 凭证名称，同一 scope 下 type + name 唯一，作为匹配创建/更新的依据
+      #
+      name: mysql
       # 凭证别名，仅用于展示，不参与唯一性；不填则默认使用 name
       #
       aliasName: MySQL 凭证
@@ -182,6 +186,7 @@ spec:
     vault:
       # 蓝鲸 KMS 托管的 OpenBAO 服务地址
       server: "https://openbao.bk-kms.svc:8200"
+      # 蓝鲸 KMS 凭证类型: secret
       path: "secret"
       version: "v2"
       # 以下 TLS / mTLS 配置仅在 OpenBao 正式环境开启了证书时才需要，默认（未开启 TLS）可整段删除。
