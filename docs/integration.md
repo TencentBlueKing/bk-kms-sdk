@@ -43,7 +43,7 @@
 - **metadata（凭证基础信息）**：凭证类型、名称与原文内容等，`value` 需先做混合（信封）加密后再提交。
 - **auth（消费鉴权信息）**：声明允许消费该凭证的 K8S 可信身份，即后文 ESO / Injector 认证时使用的 ServiceAccount。
 
-`auth.service_account` 为一个**列表**，支持为同一凭证配置**多组** ServiceAccount 绑定，每组由 ServiceAccount 名称列表与命名空间列表组成，字段如下：
+`auth.service_account` 为凭证声明允许消费的 ServiceAccount 绑定，由 ServiceAccount 名称列表与命名空间列表组成，字段如下：
 
 | 字段             | 说明                                                                                             | 与消费侧的对应关系                                                   |
 |------------------|--------------------------------------------------------------------------------------------------|----------------------------------------------------------------------|
@@ -67,18 +67,16 @@
         "annotation": ""
     },
     "auth": {
-        "service_account": [
-            {
-                "name_list": ["app-prod-sa"],
-                "namespace_list": ["app-prod"]
-            }
-        ]
+        "service_account": {
+            "name_list": ["app-prod-sa"],
+            "namespace_list": ["app-prod"]
+        }
     }
 }
 ```
 
 > - `value` 需先做混合（信封）加密后再填入，加密方式详见 KMS `get_crypto_info` 接口文档。
-> - `消费role` 本例 scope 类型为 `scope`、名称为 `my-scope`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 凭证消费 role 为 `default.scope.my-scope`。
+> - `消费role` 本例 scope 类型为 `scope`、名称为 `my-scope`、凭证名称为 `mysql`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 凭证消费 role 为 `default.scope.my-scope.mysql`。
 > - `auth.service_account` 中声明的 SA / 命名空间，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致，否则消费时认证不通过。
 
 凭证录入成功后，其在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope 类型}/{scope 名称}/{凭证名称}`（本例为 `default/scope/my-scope/mysql`），供业务进行消费。
@@ -132,17 +130,17 @@ scope:
       # 凭证的鉴权配置
       #
       auth:
-        # 绑定的 service account 列表，支持多组
+        # 绑定的 service account
         #
         serviceAccount:
-            # 允许消费该凭证的 service account 名称列表
-            #
-          - nameList:
-              - app-prod-sa
-            # 允许消费该凭证的 service account 命名空间列表
-            #
-            namespaceList:
-              - app-prod
+          # 允许消费该凭证的 service account 名称列表
+          #
+          nameList:
+            - app-prod-sa
+          # 允许消费该凭证的 service account 命名空间列表
+          #
+          namespaceList:
+            - app-prod
 ```
 
 **2. 应用声明，完成录入:**
@@ -151,9 +149,9 @@ scope:
 kmsctl apply -f my_credential.yaml
 ```
 
-其中凭证 `auth.serviceAccount` 列表的每一组 `nameList`、`namespaceList` 对应「创建凭证」接口的 `auth.service_account` 字段，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致。role 由 KMS 依据 scope 自动生成（本例为 `default.scope.my-scope`）。
+其中凭证 `auth.serviceAccount` 的 `nameList`、`namespaceList` 对应「创建凭证」接口的 `auth.service_account` 字段，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致。role 由 KMS 依据 scope 与凭证名称自动生成（本例为 `default.scope.my-scope.mysql`）。
 
-> 每组内两项字段均为可选：不填写 `nameList` / `namespaceList` 则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）。
+> `nameList` / `namespaceList` 两项字段均为可选：不填写则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）。
 
 更多子命令及参数（`create`/`list`/`get`/`update`/`delete` 等）可执行 `kmsctl --help` 查看。
 
@@ -209,8 +207,8 @@ spec:
       auth:
         kubernetes:
           mountPath: "kubernetes"
-          # 认证角色：填 KMS 自动生成的 role（tenant_id.scope_type.scope_name），本例为 default.scope.my-scope
-          role: "default.scope.my-scope"
+          # 认证角色：填 KMS 自动生成的 role（tenant_id.scope_type.scope_name.credential_name），本例为 default.scope.my-scope.mysql
+          role: "default.scope.my-scope.mysql"
           serviceAccountRef:
             name: "app-prod-sa"
             namespace: app-prod
@@ -325,10 +323,10 @@ spec:
       labels:
         app: app-server
       annotations:
-        vault.hashicorp.com/agent-inject: "true"                                                         # 开启 Agent Injector 注入，Injector 据此为 Pod 注入 Agent Sidecar
-        vault.hashicorp.com/role: "default.scope.my-scope"                                              # 认证角色，填 KMS 自动生成的 role（tenant_id.scope_type.scope_name）
-        vault.hashicorp.com/service: "https://openbao.bk-kms.svc:8200"                                   # 蓝鲸 KMS 托管的 OpenBAO 服务地址
-        vault.hashicorp.com/agent-inject-template-static-secret-render-interval: "1h"                    # 轮转周期: KV v2 属非租约密钥，Sidecar 按此间隔重新渲染文件实现自动轮转 (不配置时默认 5m)
+        vault.hashicorp.com/agent-inject: "true"                                                               # 开启 Agent Injector 注入，Injector 据此为 Pod 注入 Agent Sidecar
+        vault.hashicorp.com/role: "default.scope.my-scope.mysql"                                               # 认证角色，填 KMS 自动生成的 role（tenant_id.scope_type.scope_name.credential_name）
+        vault.hashicorp.com/service: "https://openbao.bk-kms.svc:8200"                                         # 蓝鲸 KMS 托管的 OpenBAO 服务地址
+        vault.hashicorp.com/agent-inject-template-static-secret-render-interval: "1h"                          # 轮转周期: KV v2 属非租约密钥，Sidecar 按此间隔重新渲染文件实现自动轮转 (不配置时默认 5m)
         vault.hashicorp.com/agent-inject-secret-mysql-private-key: "secret/data/default/scope/my-scope/mysql"  # 声明要注入的凭证私钥文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证名称}
         vault.hashicorp.com/agent-inject-template-mysql-private-key: |
           {{- with secret "secret/data/default/scope/my-scope/mysql" -}}
