@@ -76,10 +76,10 @@
 ```
 
 > - `value` 需先做混合（信封）加密后再填入，加密方式详见 KMS `get_crypto_info` 接口文档。
-> - `消费role` 本例 scope 类型为 `scope`、名称为 `my-scope`、凭证名称为 `mysql`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 凭证消费 role 为 `default.scope.my-scope.mysql`。
+> - `消费role` 本例 scope 类型为 `scope`、名称为 `my-scope`、凭证类型为 `secret`、凭证名称为 `mysql`、非多租户租户 ID 为 `default`，故 KMS 自动生成的 凭证消费 role 为 `default.scope.my-scope.secret.mysql`。
 > - `auth.service_account` 中声明的 SA / 命名空间，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致，否则消费时认证不通过。
 
-凭证录入成功后，其在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope 类型}/{scope 名称}/{凭证名称}`（本例为 `default/scope/my-scope/mysql`），供业务进行消费。
+凭证录入成功后，其在消费侧的引用路径形如 `{租户ID，非多租户为 default}/{scope 类型}/{scope 名称}/{凭证类型}/{凭证名称}`（本例为 `default/scope/my-scope/secret/mysql`），供业务进行消费。
 
 ### 通过 kmsctl 命令行管理工具录入凭证
 
@@ -149,7 +149,7 @@ scope:
 kmsctl apply -f my_credential.yaml
 ```
 
-其中凭证 `auth.serviceAccount` 的 `nameList`、`namespaceList` 对应「创建凭证」接口的 `auth.service_account` 字段，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致。role 由 KMS 依据 scope 与凭证名称自动生成（本例为 `default.scope.my-scope.mysql`）。
+其中凭证 `auth.serviceAccount` 的 `nameList`、`namespaceList` 对应「创建凭证」接口的 `auth.service_account` 字段，须与后文 ESO / Injector 示例中业务 Pod 实际使用的 `serviceAccountName`、`namespace` 一致。role 由 KMS 依据 scope、凭证类型与凭证名称自动生成（本例为 `default.scope.my-scope.secret.mysql`）。
 
 > `nameList` / `namespaceList` 两项字段均为可选：不填写则不限制消费凭证的 ServiceAccount 名称 / 命名空间（任意 SA 均可消费）。
 
@@ -207,8 +207,8 @@ spec:
       auth:
         kubernetes:
           mountPath: "kubernetes"
-          # 认证角色：填 KMS 自动生成的 role（tenant_id.scope_type.scope_name.credential_name），本例为 default.scope.my-scope.mysql
-          role: "default.scope.my-scope.mysql"
+          # 认证角色：填 KMS 自动生成的 role（tenant_id.scope_type.scope_name.credential_type.credential_name），本例为 default.scope.my-scope.secret.mysql
+          role: "default.scope.my-scope.secret.mysql"
           serviceAccountRef:
             name: "app-prod-sa"
             namespace: app-prod
@@ -234,11 +234,11 @@ spec:
   data:
     - secretKey: privateKey
       remoteRef:
-        key: default/scope/my-scope/mysql     # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证名称}
+        key: default/scope/my-scope/secret/mysql     # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证类型}/{凭证名称}
         property: private_key           # 蓝鲸 KMS 托管的 OpenBAO 凭证私钥字段名, 约定为 'private_key'
     - secretKey: envelope
       remoteRef:
-        key: default/scope/my-scope/mysql     # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证名称}
+        key: default/scope/my-scope/secret/mysql     # 蓝鲸 KMS 托管的 OpenBAO 凭证路径: {租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证类型}/{凭证名称}
         property: envelope              # 蓝鲸 KMS 托管的 OpenBAO 凭证信封字段名, 约定为 'envelope'
 ```
 
@@ -325,17 +325,17 @@ spec:
         app: app-server
       annotations:
         vault.hashicorp.com/agent-inject: "true"                                                               # 开启 Agent Injector 注入，Injector 据此为 Pod 注入 Agent Sidecar
-        vault.hashicorp.com/role: "default.scope.my-scope.mysql"                                               # 认证角色，填 KMS 自动生成的 role（tenant_id.scope_type.scope_name.credential_name）
+        vault.hashicorp.com/role: "default.scope.my-scope.secret.mysql"                                       # 认证角色，填 KMS 自动生成的 role（tenant_id.scope_type.scope_name.credential_type.credential_name）
         vault.hashicorp.com/service: "https://openbao.bk-kms.svc:8200"                                         # 蓝鲸 KMS 托管的 OpenBAO 服务地址
         vault.hashicorp.com/agent-inject-template-static-secret-render-interval: "1h"                          # 轮转周期: KV v2 属非租约密钥，Sidecar 按此间隔重新渲染文件实现自动轮转 (不配置时默认 5m)
-        vault.hashicorp.com/agent-inject-secret-mysql-private-key: "secret/data/default/scope/my-scope/mysql"  # 声明要注入的凭证私钥文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证名称}
+        vault.hashicorp.com/agent-inject-secret-mysql-private-key: "secret/data/default/scope/my-scope/secret/mysql"  # 声明要注入的凭证私钥文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证类型}/{凭证名称}
         vault.hashicorp.com/agent-inject-template-mysql-private-key: |
-          {{- with secret "secret/data/default/scope/my-scope/mysql" -}}
+          {{- with secret "secret/data/default/scope/my-scope/secret/mysql" -}}
           {{ .Data.data.private_key }}
           {{- end -}}
-        vault.hashicorp.com/agent-inject-secret-mysql-envelope: "secret/data/default/scope/my-scope/mysql"     # 声明要注入的凭证信封文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证名称}
+        vault.hashicorp.com/agent-inject-secret-mysql-envelope: "secret/data/default/scope/my-scope/secret/mysql"     # 声明要注入的凭证信封文件, 凭证路径: secret/data/{租户ID，非多租户为default}/{scope类型}/{scope名称}/{凭证类型}/{凭证名称}
         vault.hashicorp.com/agent-inject-template-mysql-envelope: |
-          {{- with secret "secret/data/default/scope/my-scope/mysql" -}}
+          {{- with secret "secret/data/default/scope/my-scope/secret/mysql" -}}
           {{ .Data.data.envelope }}
           {{- end -}}
     spec:
@@ -359,9 +359,9 @@ Agent Injector 默认将私钥渲染为文件供业务读取。如业务侧确�
       annotations:
         # ... 省略认证、轮转等注解 ...
         # 将私钥渲染为可 source 的 env 文件: /vault/secrets/mysql-env
-        vault.hashicorp.com/agent-inject-secret-mysql-env: "secret/data/default/scope/my-scope/mysql"
+        vault.hashicorp.com/agent-inject-secret-mysql-env: "secret/data/default/scope/my-scope/secret/mysql"
         vault.hashicorp.com/agent-inject-template-mysql-env: |
-          {{- with secret "secret/data/default/scope/my-scope/mysql" -}}
+          {{- with secret "secret/data/default/scope/my-scope/secret/mysql" -}}
           export MYSQL_PRIVATE_KEY="{{ .Data.data.private_key }}"
           {{- end -}}
     spec:
