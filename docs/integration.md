@@ -260,6 +260,7 @@ spec:
       labels:
         app: app-server
     spec:
+      serviceAccountName: app-prod-sa              # Pod 以第 0 步声明的 SA 运行，与凭证 auth 中绑定的 SA / 命名空间一致
       containers:
         - name: app
           image: your-registry/app-server:v1.0.0
