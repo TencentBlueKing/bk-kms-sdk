@@ -1,0 +1,6 @@
+# Cargo 构建产物
+/target/
+/examples/consumer/target/
+/examples/consumer/Cargo.lock
+
+*.pem

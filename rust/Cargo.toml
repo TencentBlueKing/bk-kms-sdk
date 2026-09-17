@@ -1,0 +1,32 @@
+[package]
+name = "bk-kms-sdk"
+version = "1.0.0"
+edition = "2021"
+rust-version = "1.85"
+description = "BlueKing Key Management Service (BK-KMS) envelope decryption SDK"
+license = "MIT"
+repository = "https://github.com/TencentBlueKing/bk-kms-sdk"
+homepage = "https://github.com/TencentBlueKing/bk-kms-sdk"
+readme = "README.md"
+keywords = ["bk-kms", "kms", "decrypt", "envelope", "blueking"]
+categories = ["cryptography"]
+
+[lib]
+name = "bk_kms"
+path = "src/lib.rs"
+
+[dependencies]
+aes = "0.8.4"
+base64 = "0.23.1"
+cbc = { version = "0.1.2", features = ["alloc", "block-padding"] }
+cipher = "0.4.4"
+ctr = "0.9.2"
+rsa = { version = "0.9.10", features = ["pem"] }
+serde_json = "1.0.151"
+sha2 = "0.10.9"
+sm2 = { version = "0.14.0-rc.15", features = ["pke", "der", "pem"] }
+sm4 = "0.5.1"
+thiserror = "2.0.20"
+
+[profile.release]
+lto = true
