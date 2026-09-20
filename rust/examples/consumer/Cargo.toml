@@ -1,10 +1,10 @@
 # 一个独立的消费者项目，演示如何在其他 Rust 项目中引入并使用 bk-kms-sdk。
 #
-# 这是独立的 crate（不在 SDK 的 Cargo 包内），请在本目录下单独构建，
-# 并通过环境变量传入信封与私钥内容：
+# 这是独立的 crate（不在 SDK 的 Cargo 包内），请在本目录下单独构建：
+# 信封从当前目录的 envelope.txt 读取，私钥内容通过环境变量传入。
 #
 #     cd examples/consumer
-#     $env:BK_KMS_ENVELOPE = '<base64 信封>'
+#     # 把 KMS 下发的 Base64 信封写入 envelope.txt
 #     $env:BK_KMS_PRIVATE_KEY = '<base64(PEM) 私钥内容>'
 #     cargo run
 [package]

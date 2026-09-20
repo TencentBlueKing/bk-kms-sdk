@@ -16,18 +16,20 @@
 //! 运行方式（在本目录 `examples/consumer` 下）：
 //!
 //! ```bash
+//! # 信封保存在当前目录的 envelope.txt 中（KMS 下发的 Base64 字符串），
+//! # 私钥内容（Base64(PEM)）通过环境变量传入。
+//!
 //! # Windows PowerShell
-//! $env:BK_KMS_ENVELOPE = '<base64 信封>'
 //! $env:BK_KMS_PRIVATE_KEY = '<base64(PEM) 私钥内容>'
 //! cargo run
 //!
 //! # Linux / macOS
-//! export BK_KMS_ENVELOPE='<base64 信封>'
 //! export BK_KMS_PRIVATE_KEY='<base64(PEM) 私钥内容>'
 //! cargo run
 //! ```
 
 use std::env;
+use std::fs;
 use std::process::ExitCode;
 
 use bk_kms::decrypt;
@@ -43,9 +45,9 @@ fn main() -> ExitCode {
 }
 
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    // 1. 读取配置：两个环境变量都直接保存内容，不涉及文件。
-    //    信封是 KMS 下发的 Base64 字符串，私钥是 Base64(PEM) 内容本身。
-    let envelope = env::var("BK_KMS_ENVELOPE")?;
+    // 1. 读取配置：信封从当前目录的 envelope.txt 读取（KMS 下发的 Base64 字符串），
+    //    私钥从环境变量读取（Base64(PEM) 内容本身，不是私钥文件路径）。
+    let envelope = fs::read_to_string("envelope.txt")?;
     let private_key = env::var("BK_KMS_PRIVATE_KEY")?;
 
     // 2. 调用核心接口：没有客户端对象，也没有初始化步骤。
