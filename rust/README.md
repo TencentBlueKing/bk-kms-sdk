@@ -13,7 +13,7 @@
 
 ```toml
 [dependencies]
-bk-kms-sdk = { git = "https://github.com/TencentBlueKing/bk-kms-sdk", rev = "<commit>" }
+bk-kms-sdk = { git = "https://github.com/TencentBlueKing/bk-kms-sdk", rev = "8c6571bddd86225a2fef6bbe94452db04162475e" }
 ```
 
 本地开发可改用路径依赖：
@@ -33,23 +33,26 @@ bk-kms-sdk = "1.0"
 ## 快速开始
 
 ```rust
+use std::env;
 use std::fs;
 
-use base64::Engine as _;
 use bk_kms::decrypt;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // 信封由 KMS 服务下发
-    let envelope = std::env::var("BK_KMS_ENVELOPE")?;
+    // 1. 读取配置：信封从当前目录的 envelope.txt 读取（KMS 下发的 Base64 字符串），
+    //    私钥从环境变量读取（Base64(PEM) 内容本身，不是私钥文件路径）。
+    let envelope = fs::read_to_string("envelope.txt")?;
+    let private_key = env::var("BK_KMS_PRIVATE_KEY")?;
 
-    // SDK 要求的是 Base64(PEM 文本)，不是 PEM 文件本身
-    let pem = fs::read("private_key.pem")?;
-    let private_key = base64::engine::general_purpose::STANDARD.encode(&pem);
+    // 2. 调用核心接口：没有客户端对象，也没有初始化步骤。
+    let plaintext = decrypt(envelope.trim(), private_key.trim())?;
 
-    // 没有客户端对象，没有初始化步骤，直接调用
-    let plaintext = decrypt(envelope.trim(), &private_key)?;
-
-    println!("{plaintext}");
+    // 3. 处理返回结果：明文结构由应用定义。示例按 JSON 格式化输出，
+    //    不是 JSON 时原样输出，避免对明文结构做强假设。
+    match serde_json::from_str::<serde_json::Value>(&plaintext) {
+        Ok(value) => println!("解密成功：{value}"),
+        Err(_) => println!("解密成功：{plaintext}"),
+    }
     Ok(())
 }
 ```
@@ -68,22 +71,17 @@ let credentials: serde_json::Value = serde_json::from_str(&plaintext)?;
 
 ```toml
 [dependencies]
-bk-kms-sdk = { path = "../bk-kms-sdk/rust" }   # 或使用上一节的 Git 依赖
+bk-kms-sdk = { git = "https://github.com/TencentBlueKing/bk-kms-sdk", rev = "8c6571bddd86225a2fef6bbe94452db04162475e" }
 serde_json = "1.0"   # 仅当明文是 JSON 时需要
-base64 = "0.23"      # 仅当需要把 PEM 文件编码成 Base64 时才引入
 ```
 
 **第 2 步：初始化。** SDK **没有客户端对象，也没有初始化步骤**：没有 `Client`、没有配置项、不发网络请求、不持有全局状态。`use bk_kms::decrypt;` 之后即可调用。
 
-**第 3 步：准备入参。** 信封是 KMS 下发的 Base64 字符串；私钥必须是 **Base64(PEM)** 形式的内容，两种取法都行：
+**第 3 步：准备入参。** 信封是 KMS 下发的 Base64 字符串（示例存放在文件里）；私钥必须是 **Base64(PEM)** 形式的内容：
 
 ```rust
-// 方式一：配置里已经是 Base64(PEM) 内容，直接使用
+let envelope = std::fs::read_to_string("envelope.txt")?;
 let private_key = std::env::var("BK_KMS_PRIVATE_KEY")?;
-
-// 方式二：手上是 PEM 文件，读取后再编码一次
-let pem = std::fs::read("private_key.pem")?;
-let private_key = base64::engine::general_purpose::STANDARD.encode(&pem);
 ```
 
 **第 4 步：调用核心接口。**
@@ -124,11 +122,11 @@ match bk_kms::decrypt(envelope.trim(), &private_key) {
 }
 ```
 
-运行 `examples/consumer`（两个环境变量都传内容）：
+运行 `examples/consumer`（信封放在 `examples/consumer/envelope.txt`，私钥内容通过环境变量传入）：
 
 ```bash
 cd examples/consumer
-export BK_KMS_ENVELOPE='<base64 信封>'
+# 把 KMS 下发的 Base64 信封写入 envelope.txt
 export BK_KMS_PRIVATE_KEY='<base64(PEM) 私钥内容>'
 cargo run
 ```
@@ -192,7 +190,7 @@ pub fn decrypt(envelope: &str, private_key: &str) -> Result<String, Error>
 ## 示例
 
 - [`examples/decrypt.rs`](examples/decrypt.rs)：单文件端到端示例，`cargo run --example decrypt` 可直接运行（未配置环境变量时使用内置测试向量）。
-- [`examples/consumer/`](examples/consumer)：独立 crate，演示在其他项目中引入依赖、通过环境变量读取配置、调用接口与处理错误的完整流程。
+- [`examples/consumer/`](examples/consumer)：独立 crate，演示在其他项目中引入依赖、从文件读取信封（私钥走环境变量）、调用接口与处理错误的完整流程。
 
 
 ## 安全注意事项
