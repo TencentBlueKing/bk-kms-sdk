@@ -81,7 +81,7 @@ public final class Rsa {
 
     /**
      * Decrypts an RSA-OAEP(SHA-256, MGF1(SHA-256)) ciphertext, returning the
-     * raw plaintext bytes. Accepts a Base64-of-Base64-of-PEM private key
+     * raw plaintext bytes. Accepts a Base64-of-PEM private key
      * (either PKCS#8 or PKCS#1).
      *
      * <p>Prefer this method when the plaintext is binary (e.g. a symmetric

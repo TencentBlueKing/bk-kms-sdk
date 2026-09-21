@@ -30,7 +30,7 @@ cargo fmt --check
 
 ## 协议一致性
 
-信封格式与算法实现需与 Go、Python、C++ SDK 保持一致：
+信封格式与算法实现需与 Go、C++、Java、Python SDK 保持一致：
 
 - 信封：Base64 JSON，字段 `asymmetric_type` / `symmetric_type` / `symmetric_mode` / `encrypted_key` / `ciphertext`。
 - 私钥：Base64 PEM，RSA 支持 PKCS#8 与 PKCS#1，SM2 要求 PKCS#8。

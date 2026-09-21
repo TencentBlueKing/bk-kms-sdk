@@ -15,7 +15,7 @@
 //!
 //! The wire format is Base64 of `IV[16] || ciphertext`. CBC uses PKCS#7 padding and
 //! requires block alignment; CTR uses the standard big-endian counter and carries no
-//! padding. Both match the Go, Python, and C++ SDKs.
+//! padding. Both match the Go, C++, Java, and Python SDKs.
 
 use aes::Aes128;
 use cbc::Decryptor;

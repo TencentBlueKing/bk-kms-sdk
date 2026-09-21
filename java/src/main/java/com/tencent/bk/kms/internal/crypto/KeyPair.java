@@ -16,7 +16,6 @@
 package com.tencent.bk.kms.internal.crypto;
 
 /**
- * Ephemeral asymmetric key pair used for a single consume-credential request.
  * Public key is Base64-of-PEM (PKIX or PKCS#1); private key is Base64-of-PEM.
  *
  * <p><b>Internal API.</b> Do not depend on this class from outside the SDK.

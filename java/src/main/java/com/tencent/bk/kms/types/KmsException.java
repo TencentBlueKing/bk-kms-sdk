@@ -17,7 +17,7 @@ package com.tencent.bk.kms.types;
 
 /**
  * Unified runtime exception thrown by the BK-KMS SDK for non-fatal errors
- * (crypto failures, HTTP failures, response decoding, invalid options, etc.).
+ * (crypto failures, decryption failures, invalid options, etc.).
  */
 public class KmsException extends RuntimeException {
 

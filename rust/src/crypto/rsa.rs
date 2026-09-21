@@ -13,7 +13,7 @@
 
 //! RSA-OAEP (SHA-256) decryption of the wrapped data key.
 //!
-//! Matches the Go, Python, and C++ SDKs: OAEP with SHA-256 for both the digest and
+//! Matches the Go, C++, Java, and Python SDKs: OAEP with SHA-256 for both the digest and
 //! MGF1, no label, and no segmented encryption. Private keys are Base64-encoded PEM
 //! and may be PKCS#8 (`BEGIN PRIVATE KEY`) or PKCS#1 (`BEGIN RSA PRIVATE KEY`).
 
