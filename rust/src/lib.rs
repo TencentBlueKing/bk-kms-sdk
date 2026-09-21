@@ -20,7 +20,7 @@
 //! plaintext, and configuring the host application all remain the caller's
 //! responsibility.
 //!
-//! This crate is functionally equivalent to the Go, Python, and C++ SDKs of the same
+//! This crate is functionally equivalent to the Go, C++, Java, and Python SDKs of the same
 //! repository: the wire format, the supported algorithms, and the failure taxonomy
 //! are kept in sync.
 //!

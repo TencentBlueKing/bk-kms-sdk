@@ -3,8 +3,9 @@
 ## Scope and public contract
 
 The SDK implements local envelope decryption, aligned with Go `decrypt.Decrypt`
-([source](../../go/decrypt/decrypt.go)) and C++ `bkkms::Decrypt`
-([source](../../cpp/source/decrypt/decrypt.cpp)).
+([source](../../go/decrypt/decrypt.go)), C++ `bkkms::Decrypt`
+([source](../../cpp/source/decrypt/decrypt.cpp)), and Java `Decrypt.decrypt`
+([source](../../java/src/main/java/com/tencent/bk/kms/decrypt/Decrypt.java)).
 
 `bk_kms.decrypt(envelope: str, private_key: str) -> str` accepts a Base64 JSON
 envelope and a matching Base64 PEM private key. It returns the original UTF-8

@@ -15,8 +15,10 @@ and protocol detail in the maintainer documents.
 
 Implementation/tests define current behavior; `pyproject.toml`, `Makefile`, and
 `../.github/workflows/python.yml` define packaging and checks. Compare protocol
-changes with `../go/decrypt/decrypt.go`, `../go/internal/crypto/crypto.go`, and
-`../cpp/source/decrypt/decrypt.cpp`, plus the stored vectors in `tests/fixtures/`.
+changes with `../go/decrypt/decrypt.go`, `../go/internal/crypto/crypto.go`,
+`../cpp/source/decrypt/decrypt.cpp`, and
+`../java/src/main/java/com/tencent/bk/kms/decrypt/Decrypt.java`, plus the stored
+vectors in `tests/fixtures/`.
 
 ## Module boundaries
 

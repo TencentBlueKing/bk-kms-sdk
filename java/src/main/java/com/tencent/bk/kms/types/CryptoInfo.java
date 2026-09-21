@@ -21,7 +21,7 @@ import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 
 /**
  * Carries the asymmetric algorithm, symmetric algorithm and symmetric mode for
- * a hybrid consume-credential request.
+ * a hybrid envelope.
  */
 @JsonPropertyOrder({"asymmetric_type", "symmetric_type", "symmetric_mode"})
 public record CryptoInfo(

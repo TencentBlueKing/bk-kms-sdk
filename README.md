@@ -25,6 +25,7 @@
 
 * [golang-sdk](go/README.md)
 * [cpp-sdk](cpp/README.md)
+* [java-sdk](java/README.md)
 * [python-sdk](python/README.md)
 * [rust-sdk](rust/README.md)
 

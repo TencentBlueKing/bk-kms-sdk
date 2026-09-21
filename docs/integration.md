@@ -63,6 +63,7 @@
         "name": "mysql",
         "alias_name": "MySQL 凭证",
         "value": "BASE64_HYBRID_ENCRYPTED_CONTENT",
+        "enable_encrypt": true,
         "description": "业务 MySQL 凭证",
         "annotation": ""
     },
@@ -83,9 +84,9 @@
 
 ### 通过 kmsctl 命令行管理工具录入凭证
 
-除直接调用「创建凭证create_credential）」接口外，KMS 提供命令行工具 `kmsctl` 用于录入与维护凭证。
+除直接调用「创建凭证 create_credential 」接口外，KMS 提供命令行工具 `kmsctl` 用于录入与维护凭证。
 
-该工具随 KMS 镜像分发（默认位于 `/data/kms/tools/kmsctl`），支持以一份 YAML 声明式地管理业务（scope）及其下的凭证, 凭证的 `value` 传入原文明文，工具会在 apply 时自动完成混合（信封）加密。
+该工具随 KMS 镜像分发（默认位于 `/data/kms/tools/kmsctl`），支持以一份 YAML 声明式地管理业务（scope）及其下的凭证。凭证的 `value` 传入原文明文，工具会在 apply 时自动完成传输层混合（信封）加密。若要求凭证在 OpenBao 中加密存储，须设置`enableEncrypt`为 true。
 
 **1. 编写凭证声明文件（如 `my_credential.yaml`）:**
 
@@ -121,6 +122,9 @@ scope:
       # 凭证原文（明文），apply 时会自动做混合(信封)加密
       #
       value: 'change-me'
+      # 是否启用落盘信封加密, 不填则默认 false
+      #
+      enableEncrypt: true
       # 凭证描述
       #
       description: mysql credential
