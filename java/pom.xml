@@ -37,7 +37,7 @@
 
         <!-- Third-party versions -->
         <jackson.version>2.16.1</jackson.version>
-        <bouncycastle.version>1.77</bouncycastle.version>
+        <bouncycastle.version>1.84</bouncycastle.version>
         <junit.version>5.10.1</junit.version>
 
         <!-- Plugin versions -->
@@ -51,13 +51,6 @@
                 <groupId>com.fasterxml.jackson</groupId>
                 <artifactId>jackson-bom</artifactId>
                 <version>${jackson.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
-            <dependency>
-                <groupId>org.junit</groupId>
-                <artifactId>junit-bom</artifactId>
-                <version>${junit.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -91,6 +84,7 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
     </dependencies>
