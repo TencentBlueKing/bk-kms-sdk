@@ -32,8 +32,9 @@
 
 <rect x="90" y="110" width="500" height="44" rx="10" fill="#EAF3DE" stroke="#97C459" stroke-width="0.8"/>
 <text x="112" y="132" fill="#3F7314" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="14" font-weight="600" dominant-baseline="central">OpenBao / Vault</text>
-<text x="568" y="126" text-anchor="end" fill="#3F7314" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="10.5" dominant-baseline="central">KV v2 · default/my-scope/mysql</text>
+<text x="568" y="126" text-anchor="end" fill="#3F7314" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="10.5" dominant-baseline="central">KV v2 · default/scope/my-scope/secret/mysql</text>
 <text x="568" y="140" text-anchor="end" fill="#6E8A4E" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="9.5" dominant-baseline="central">字段：private_key（私钥） · envelope（密文信封）</text>
+<text x="350" y="164" text-anchor="middle" fill="#5F7C9C" font-family="PingFang SC, Microsoft YaHei, sans-serif" font-size="9" dominant-baseline="central">remoteRef.key：{租户ID}/{scope类型}/{scope名称}/{凭证类型}/{凭证名称} · path: secret</text>
 
 <!-- 存储 → 注入层：SA Token 认证 -->
 <path d="M340 176 L340 200" fill="none" stroke="#7FA8DC" stroke-width="2" marker-end="url(#arr)"/>
