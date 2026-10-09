@@ -2,7 +2,7 @@
 name = "bk-kms-sdk"
 version = "1.0.0"
 edition = "2021"
-rust-version = "1.85"
+rust-version = "1.87"
 description = "BlueKing Key Management Service (BK-KMS) envelope decryption SDK"
 license = "MIT"
 repository = "https://github.com/TencentBlueKing/bk-kms-sdk"
