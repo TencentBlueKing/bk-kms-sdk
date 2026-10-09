@@ -58,9 +58,15 @@ jobs:
     environment:
       name: pypi
       url: https://pypi.org/p/bk-kms-sdk
-    permissions:
-      id-token: write
     steps:
+      - name: Check PyPI token is configured
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          if [ -z "$PYPI_TOKEN" ]; then
+            echo "::error::Configure the PYPI_TOKEN secret in the repository or pypi environment."
+            exit 1
+          fi
       - name: Download distributions
         uses: actions/download-artifact@v4
         with:
@@ -68,3 +74,7 @@ jobs:
           path: dist/
       - name: Publish distributions to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
+          attestations: false

@@ -6,8 +6,8 @@ Pushing a `python/v*` tag to `TencentBlueKing/bk-kms-sdk` triggers
 It checks the tag against `src/bk_kms/_version.py`, runs `make lint` and
 `make test` on Linux with Python 3.11 and the GM extra, and builds the wheel and
 sdist with `make build`. A separate job uploads those distributions to
-<https://pypi.org> using Trusted Publishing. It only publishes from the official
-repository.
+<https://pypi.org> using the `PYPI_TOKEN` GitHub secret. It only publishes from
+the official repository.
 
 The existing [Python CI](../../.github/workflows/python.yml) checks the supported
 platform matrix on pull requests. Changes to the publishing workflow also
@@ -15,30 +15,27 @@ trigger that CI.
 
 ## One-time setup
 
-Publishing uses GitHub OIDC, so no PyPI API token is needed in GitHub secrets.
+Publishing authenticates to PyPI as `__token__`, with the API token supplied by
+the `PYPI_TOKEN` GitHub secret.
 
-1. Create a GitHub environment named `pypi` in the official repository. Its
+1. In your PyPI account's **Account settings → API tokens**, create an API token
+   scoped to `bk-kms-sdk`. If the project does not exist yet, use an
+   account-scoped token for the first upload, then replace it with a
+   project-scoped token once the project exists. Copy the complete token,
+   including its `pypi-` prefix.
+2. Create a GitHub environment named `pypi` in the official repository. Its
    deployment rules must allow `python/v*` tags. Required reviewers are optional;
    configure them only if releases should wait for manual approval.
-2. In the PyPI project's **Publishing** settings, add a GitHub Trusted Publisher
-   with these exact values:
+3. In the GitHub repository's **Settings → Secrets and variables → Actions →
+   New repository secret**, create `PYPI_TOKEN` with the token as its value.
+   Alternatively, add it as an environment secret under **Settings → Environments →
+   pypi**. Use one location; if both define `PYPI_TOKEN`, the environment secret
+   takes precedence.
 
-   | Field | Value |
-   | --- | --- |
-   | PyPI project | `bk-kms-sdk` |
-   | GitHub owner | `TencentBlueKing` |
-   | Repository | `bk-kms-sdk` |
-   | Workflow filename | `python-release.yml` |
-   | Environment | `pypi` |
-
-   If the PyPI project does not exist yet, register a pending publisher with the
-   same values from your PyPI account's **Publishing** page.
-
-See the official instructions for
-[existing projects](https://docs.pypi.org/trusted-publishers/adding-a-publisher/)
-and [new projects](https://docs.pypi.org/trusted-publishers/creating-a-project-through-oidc/).
-An authorized PyPI project maintainer must complete this setup before the first
-release tag is pushed.
+See the official [PyPI API token instructions](https://pypi.org/help/#apitoken).
+Complete this setup before pushing the first release tag. If `PYPI_TOKEN` is
+missing or empty, the workflow stops before attempting to upload. The token is
+only passed to the publishing job, and the workflow does not print it.
 
 ## Release steps
 
