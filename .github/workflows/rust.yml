@@ -1,0 +1,84 @@
+name: Rust SDK
+
+on:
+  pull_request:
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust.yml"
+      - ".github/workflows/rust-release.yml"
+  push:
+    paths:
+      - "rust/**"
+      - ".github/workflows/rust.yml"
+      - ".github/workflows/rust-release.yml"
+
+jobs:
+  linux:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        rust-version: ["1.87", "stable"]
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust-version }}
+          components: clippy, rustfmt
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo build --all-targets
+      - run: cargo test
+
+  tencentos:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux/amd64
+            image: tencentos/tencentos4-minimal@sha256:bf28f69eb15a999b701cf771d9681e50abd24ee20952738a1b8908fe34cd89be
+          - platform: linux/arm64
+            image: tencentos/tencentos4-minimal@sha256:e2ba6d4f8814fd7b9a13131c280e139cea259a8fda372b1223514de452ad601d
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - name: Test in TencentOS 4
+        run: |
+          docker run --rm \
+            --platform "${{ matrix.platform }}" \
+            -v "${PWD}:/workspace" \
+            -w /workspace \
+            "${{ matrix.image }}" \
+            sh -lc '
+              set -e
+              dnf install -y gcc
+              curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+              . "$HOME/.cargo/env"
+              cargo build --all-targets
+              cargo test
+            '
+
+  standard-crypto:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+        rust-version: ["1.87", "stable"]
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ matrix.rust-version }}
+      - run: cargo build --all-targets
+      - run: cargo test

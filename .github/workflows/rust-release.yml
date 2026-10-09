@@ -1,0 +1,54 @@
+name: Publish Rust SDK to crates.io
+
+on:
+  push:
+    tags:
+      - "rust/v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: rust-crates-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.repository == 'TencentBlueKing/bk-kms-sdk'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: rust
+    env:
+      CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - name: Check tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          version=$(grep -m1 '^version = ' Cargo.toml | sed -E 's/version = "(.*)"/\1/')
+          expected_tag="rust/v${version}"
+          tag="${RELEASE_TAG}"
+          if [ "$tag" != "$expected_tag" ]; then
+            echo "::error::Tag ${tag} does not match package version; expected ${expected_tag}"
+            exit 1
+          fi
+      - name: Check crates.io token is configured
+        run: |
+          if [ -z "$CARGO_REGISTRY_TOKEN" ]; then
+            echo "::error::Configure the CARGO_REGISTRY_TOKEN secret in the repository."
+            exit 1
+          fi
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test
+      - name: Verify package builds and is publishable
+        run: cargo publish --dry-run
+      - name: Publish to crates.io
+        run: cargo publish --token "$CARGO_REGISTRY_TOKEN"
