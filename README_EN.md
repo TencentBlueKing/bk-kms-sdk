@@ -6,8 +6,10 @@
 
 English | [简体中文](README.md)
 
-> **Note**: The `master` branch may be in an **unstable or even broken state** during development.
-Please use [releases](https://github.com/TencentBlueKing/bk-kms-sdk/releases) instead of the `master` branch in order to get stable version.
+> **Note**: The BK-KMS credential management service is still under development and is expected to be released in November 2026.
+>
+> The `master` branch may be in an **unstable or even broken state** during development.
+> Please use [releases](https://github.com/TencentBlueKing/bk-kms-sdk/releases) instead of the `master` branch in order to get stable version.
 
 BlueKing Key Management Service (KMS) is the credential system of the BlueKing platform. This project provides SDKs for BK-KMS in multiple languages.
 

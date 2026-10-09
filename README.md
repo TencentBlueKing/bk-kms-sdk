@@ -6,8 +6,10 @@
 
 [English](README_EN.md) | 简体中文
 
-> **重要提示**: `master` 分支在开发过程中可能处于**不稳定或者不可用状态**。
-请通过[releases](https://github.com/TencentBlueKing/bk-kms-sdk/releases) 而非 `master` 去获取稳定的版本。
+> **重要提示**: BK-KMS 凭证管理服务目前仍在研发中，预计于 2026 年 11 月发布，敬请期待。
+>
+> `master` 分支在开发过程中可能处于**不稳定或者不可用状态**。
+> 请通过[releases](https://github.com/TencentBlueKing/bk-kms-sdk/releases) 而非 `master` 去获取稳定的版本。
 
 蓝鲸智云凭证管理服务（BlueKing Key Management Service）简称 KMS，本项目提供 KMS 的各语言 SDK。
 
