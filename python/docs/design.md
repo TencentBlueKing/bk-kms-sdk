@@ -57,3 +57,4 @@ The wheel remains pure Python; native dependencies belong to the GM extra.
 
 Version metadata comes from `src/bk_kms/_version.py`. Python releases and
 [CHANGELOG](../CHANGELOG.md) are independent of the other language SDKs.
+See [publishing instructions](releasing.md) for tag naming and PyPI setup.

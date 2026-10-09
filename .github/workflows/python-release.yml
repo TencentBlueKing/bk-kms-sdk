@@ -1,0 +1,80 @@
+name: Publish Python SDK to PyPI
+
+on:
+  push:
+    tags:
+      - "python/v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: python-pypi-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: python
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Check tag matches package version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          python - <<'PY'
+          import os
+          import runpy
+
+          version = runpy.run_path("src/bk_kms/_version.py")["__version__"]
+          expected_tag = f"python/v{version}"
+          tag = os.environ["RELEASE_TAG"]
+          if tag != expected_tag:
+              raise SystemExit(f"Tag {tag!r} does not match package version; expected {expected_tag!r}")
+          PY
+      - run: python -m pip install --upgrade pip
+      - run: python -m pip install -e ".[dev,gm]"
+      - run: make lint
+      - run: make test
+      - run: make build
+      - name: Upload distributions
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-distributions
+          path: python/dist/*
+          if-no-files-found: error
+
+  publish:
+    if: github.repository == 'TencentBlueKing/bk-kms-sdk'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/bk-kms-sdk
+    steps:
+      - name: Check PyPI token is configured
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          if [ -z "$PYPI_TOKEN" ]; then
+            echo "::error::Configure the PYPI_TOKEN secret in the repository or pypi environment."
+            exit 1
+          fi
+      - name: Download distributions
+        uses: actions/download-artifact@v4
+        with:
+          name: python-distributions
+          path: dist/
+      - name: Publish distributions to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_TOKEN }}
+          attestations: false

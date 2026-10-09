@@ -5,10 +5,12 @@ on:
     paths:
       - "python/**"
       - ".github/workflows/python.yml"
+      - ".github/workflows/python-release.yml"
   push:
     paths:
       - "python/**"
       - ".github/workflows/python.yml"
+      - ".github/workflows/python-release.yml"
 
 jobs:
   linux:
