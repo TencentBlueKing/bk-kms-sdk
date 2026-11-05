@@ -1,0 +1,40 @@
+/*
+ * TencentBlueKing is pleased to support the open source community by making
+ * 蓝鲸智云 - 凭证管理服务(BlueKing - Key Management Service) available.
+ * Copyright (C) 2022 THL A29 Limited, a Tencent company. All rights reserved.
+ * Licensed under the MIT License (the "License"); you may not use this file except
+ * in compliance with the License. You may obtain a copy of the License at
+ * http://opensource.org/licenses/MIT
+ * Unless required by applicable law or agreed to in writing, software distributed
+ * under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
+ * CONDITIONS OF ANY KIND, either express or implied. See the License for the specific
+ * language governing permissions and limitations under the License.We undertake not
+ * to change the open source license (MIT license) applicable to the current version
+ * of the project delivered to anyone in the future.
+ */
+
+'use strict';
+
+const ErrorCode = Object.freeze({
+  INVALID_ARGUMENT: 'INVALID_ARGUMENT',
+  INVALID_ENVELOPE: 'INVALID_ENVELOPE',
+  UNSUPPORTED_ALGORITHM: 'UNSUPPORTED_ALGORITHM',
+  ALGORITHM_UNAVAILABLE: 'ALGORITHM_UNAVAILABLE',
+  INVALID_PRIVATE_KEY: 'INVALID_PRIVATE_KEY',
+  DECRYPT_FAILED: 'DECRYPT_FAILED',
+  INVALID_PLAINTEXT: 'INVALID_PLAINTEXT',
+});
+
+/**
+ * Error thrown by the SDK. Messages never contain the private key, envelope,
+ * data key or plaintext.
+ */
+class KmsError extends Error {
+  constructor(code, message, options) {
+    super(message, options);
+    this.name = 'KmsError';
+    this.code = code;
+  }
+}
+
+module.exports = { ErrorCode, KmsError };

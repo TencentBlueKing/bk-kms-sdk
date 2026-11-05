@@ -30,6 +30,7 @@ This project is a collection of multi-language runtime decryption tools, providi
 * [java-sdk](java/README.md)
 * [python-sdk](python/README.md)
 * [rust-sdk](rust/README.md)
+* [nodejs-sdk](nodejs/README.md)
 
 ## Roadmap
 
