@@ -5,20 +5,20 @@
 ## 运行环境
 
 - Node.js `>=20`
-- 无第三方依赖，仅使用 `node:crypto`；RSA、AES、SM2、SM4 均无需额外配置
-- SM2/SM3/SM4 依赖 Node.js 所带 OpenSSL；官方发行版均支持。若使用裁剪过国密算法的自定义构建，将抛出 `ALGORITHM_UNAVAILABLE`
+- RSA、AES、SM4 使用 `node:crypto`；SM2 使用 [sm-crypto-v2](https://github.com/Cubelrti/sm-crypto-v2)（基于 `@noble/curves`），不依赖 Node.js 所带 OpenSSL 的 SM2 实现
+- SM4 依赖 Node.js 所带 OpenSSL；官方发行版均支持。若使用裁剪过国密算法的自定义构建，将抛出 `ALGORITHM_UNAVAILABLE`
 
 ## 安装
 
 ```bash
-npm install bk-kms-sdk
+npm install @blueking/bk-kms-sdk
 ```
 
 ## 解密
 
 ```js
 const fs = require('node:fs');
-const { decrypt } = require('bk-kms-sdk');
+const { decrypt } = require('@blueking/bk-kms-sdk');
 
 const plaintext = decrypt(
   fs.readFileSync('envelope.txt', 'utf8').trim(),
@@ -30,7 +30,7 @@ const plaintext = decrypt(
 
 `decrypt(envelope, privateKey)` 同步返回原始 UTF-8 明文字符串。信封中的算法字段决定使用 RSA/SM2、AES/SM4 和 CBC/CTR。如果录入的内容是 JSON，由应用自行 `JSON.parse(plaintext)`。
 
-ESM 与 TypeScript 均可直接使用：`import { decrypt } from 'bk-kms-sdk'`（自带类型声明）。
+ESM 与 TypeScript 均可直接使用：`import { decrypt } from '@blueking/bk-kms-sdk'`（自带类型声明）。
 
 完整示例见 [examples/decrypt.js](examples/decrypt.js)。
 

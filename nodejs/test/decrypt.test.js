@@ -206,6 +206,20 @@ describe('invalid input', () => {
     expectCode(() => decrypt(truncated, vector.private_key), ErrorCode.DECRYPT_FAILED);
   });
 
+  it('rejects an SM2 C1 point that is not on the curve', () => {
+    const tlv = (tag, body) => Buffer.concat([Buffer.from([tag, body.length]), body]);
+    const offCurve = tlv(
+      0x30,
+      Buffer.concat([
+        tlv(0x02, Buffer.from([1])),
+        tlv(0x02, Buffer.from([1])),
+        tlv(0x04, Buffer.alloc(32)),
+        tlv(0x04, Buffer.from([0])),
+      ]),
+    );
+    expectCode(() => sm2Decrypt(offCurve.toString('base64'), vector.private_key), ErrorCode.DECRYPT_FAILED);
+  });
+
   it('rejects data keys that are not 16 bytes', () => {
     const { publicKey, privateKey } = rsaKeyPair();
     const key = crypto.randomBytes(24);

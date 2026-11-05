@@ -32,5 +32,8 @@
     "envelope",
     "sm2",
     "sm4"
-  ]
+  ],
+  "dependencies": {
+    "sm-crypto-v2": "^2.0.0"
+  }
 }

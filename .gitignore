@@ -46,3 +46,4 @@ Thumbs.db
 # -----------------------------------------------------------------------------
 nodejs/node_modules/
 nodejs/*.tgz
+package-lock.json

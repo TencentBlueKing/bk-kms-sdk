@@ -15,21 +15,20 @@
 
 'use strict';
 
-// SM2 public-key decryption (GM/T 0003.4) with ASN.1 ciphertext
-// SEQUENCE { INTEGER x1, INTEGER y1, OCTET STRING C3, OCTET STRING C2 },
+// SM2 public-key decryption (GM/T 0003.4) with ASN.1 C1C3C2 ciphertext,
 // matching gmsm sm2.ASN1DecrypterOpts used by the Go SDK.
 //
-// Node's privateDecrypt does not support SM2, so the shared point [d]C1 is
-// computed with ECDH on the SM2 curve. ECDH only yields x2; both possible y2
-// values are tried and the one passing the C3 integrity check is accepted.
+// Node's privateDecrypt does not support SM2, and OpenSSL's SM2 ECDH is broken
+// in some Node.js releases (e.g. 24.22 / OpenSSL 3.5.9), so the curve math is
+// delegated to sm-crypto-v2 (built on @noble/curves).
 
-const crypto = require('node:crypto');
+const { sm2 } = require('sm-crypto-v2');
 
 const { ErrorCode, KmsError } = require('../errors');
 const { decodeBase64, decodePrivateKey, parseDer, derChildren, toFixedBytes } = require('./encoding');
 
 const FIELD_SIZE = 32;
-const SM3_SIZE = 32;
+const C1C3C2 = 1;
 const TAG_INTEGER = 0x02;
 const TAG_OCTET_STRING = 0x04;
 const TAG_OID = 0x06;
@@ -37,15 +36,7 @@ const TAG_SEQUENCE = 0x30;
 const TAG_CONTEXT_0 = 0xa0;
 const OID_EC_PUBLIC_KEY = '2a8648ce3d0201'; // 1.2.840.10045.2.1
 const OID_SM2 = '2a811ccf5501822d'; // 1.2.156.10197.1.301
-
-function ensureAvailable() {
-  if (!crypto.getCurves().includes('SM2') || !crypto.getHashes().includes('sm3')) {
-    throw new KmsError(
-      ErrorCode.ALGORITHM_UNAVAILABLE,
-      'SM2/SM3 is not supported by the OpenSSL build used by this Node.js runtime',
-    );
-  }
-}
+const N = 0xfffffffeffffffffffffffffffffffff7203df6b21c6052b53bbf40939d54123n;
 
 function expectTag(tlv, tag) {
   if (!tlv || tlv.tag !== tag) {
@@ -54,7 +45,7 @@ function expectTag(tlv, tag) {
   return tlv.value;
 }
 
-/** Extracts the 32-byte private scalar from an SM2 PKCS#8 PrivateKeyInfo. */
+/** Extracts the private scalar (hex) from an SM2 PKCS#8 PrivateKeyInfo. */
 function parsePrivateKey(der) {
   const info = derChildren(parseDer(der, TAG_SEQUENCE).value);
   const version = expectTag(info[0], TAG_INTEGER);
@@ -86,70 +77,15 @@ function parsePrivateKey(der) {
   if (!d) {
     throw new Error('invalid SM2 private key length');
   }
-  return d;
-}
-
-function parseCoordinate(tlv) {
-  const value = expectTag(tlv, TAG_INTEGER);
-  if (value.length === 0 || value[0] & 0x80) {
-    throw new Error('invalid SM2 point coordinate');
+  const hex = d.toString('hex');
+  const scalar = BigInt(`0x${hex}`);
+  if (scalar < 1n || scalar > N - 2n) {
+    throw new Error('SM2 private key is out of range');
   }
-  const fixed = toFixedBytes(value, FIELD_SIZE);
-  if (!fixed) {
-    throw new Error('invalid SM2 point coordinate');
-  }
-  return fixed;
-}
-
-function parseCiphertext(buf) {
-  const parts = derChildren(parseDer(buf, TAG_SEQUENCE).value);
-  if (parts.length !== 4) {
-    throw new Error('invalid SM2 ciphertext structure');
-  }
-  const x1 = parseCoordinate(parts[0]);
-  const y1 = parseCoordinate(parts[1]);
-  const c3 = expectTag(parts[2], TAG_OCTET_STRING);
-  const c2 = expectTag(parts[3], TAG_OCTET_STRING);
-  if (c3.length !== SM3_SIZE || c2.length === 0) {
-    throw new Error('invalid SM2 ciphertext structure');
-  }
-  return { c1: Buffer.concat([Buffer.from([0x04]), x1, y1]), c3, c2 };
-}
-
-function kdf(x2, y2, length) {
-  const blocks = [];
-  const counter = Buffer.alloc(4);
-  for (let i = 1, produced = 0; produced < length; i++, produced += SM3_SIZE) {
-    counter.writeUInt32BE(i);
-    blocks.push(crypto.createHash('sm3').update(x2).update(y2).update(counter).digest());
-  }
-  return Buffer.concat(blocks).subarray(0, length);
-}
-
-function tryRecover(x2, prefix, c2, c3) {
-  const point = crypto.ECDH.convertKey(
-    Buffer.concat([Buffer.from([prefix]), x2]),
-    'SM2',
-    undefined,
-    undefined,
-    'uncompressed',
-  );
-  const y2 = point.subarray(1 + FIELD_SIZE);
-  const t = kdf(x2, y2, c2.length);
-  if (t.every((b) => b === 0)) {
-    return null;
-  }
-  const message = Buffer.alloc(c2.length);
-  for (let i = 0; i < c2.length; i++) {
-    message[i] = c2[i] ^ t[i];
-  }
-  const u = crypto.createHash('sm3').update(x2).update(message).update(y2).digest();
-  return crypto.timingSafeEqual(u, c3) ? message : null;
+  return hex;
 }
 
 function sm2Decrypt(encodedText, privateKeyBase64) {
-  ensureAvailable();
-
   const ciphertext = decodeBase64(encodedText);
   if (!ciphertext) {
     throw new KmsError(ErrorCode.DECRYPT_FAILED, 'SM2 encrypted key is not valid base64');
@@ -160,28 +96,27 @@ function sm2Decrypt(encodedText, privateKeyBase64) {
     throw new KmsError(ErrorCode.INVALID_PRIVATE_KEY, 'private key is not a base64-encoded PEM');
   }
 
-  const ecdh = crypto.createECDH('SM2');
+  let privateKeyHex;
   try {
-    ecdh.setPrivateKey(parsePrivateKey(der));
+    privateKeyHex = parsePrivateKey(der);
   } catch (cause) {
     throw new KmsError(ErrorCode.INVALID_PRIVATE_KEY, 'private key is not an SM2 PKCS#8 key', { cause });
   }
 
-  let parsed;
-  let x2;
+  let output;
   try {
-    parsed = parseCiphertext(ciphertext);
-    x2 = toFixedBytes(ecdh.computeSecret(parsed.c1), FIELD_SIZE);
+    output = sm2.doDecrypt(ciphertext.toString('hex'), privateKeyHex, C1C3C2, { asn1: true, output: 'array' });
   } catch (cause) {
     throw new KmsError(ErrorCode.DECRYPT_FAILED, 'SM2 ciphertext is malformed', { cause });
   }
 
-  // Evaluate both candidates so the work done does not depend on the parity of y2.
-  const even = tryRecover(x2, 0x02, parsed.c2, parsed.c3);
-  const odd = tryRecover(x2, 0x03, parsed.c2, parsed.c3);
-  const plaintext = even || odd;
-  if (!plaintext) {
+  // sm-crypto-v2 signals a C3 mismatch (wrong key, tampered data) with an empty result.
+  if (!output || output.length === 0) {
     throw new KmsError(ErrorCode.DECRYPT_FAILED, 'SM2 decryption failed');
+  }
+  const plaintext = Buffer.from(output);
+  if (typeof output.fill === 'function') {
+    output.fill(0);
   }
   return plaintext;
 }

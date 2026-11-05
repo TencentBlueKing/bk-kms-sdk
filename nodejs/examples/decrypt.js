@@ -19,7 +19,7 @@
 
 const fs = require('node:fs');
 
-const { decrypt, KmsError } = require('bk-kms-sdk');
+const { decrypt, KmsError } = require('@blueking/bk-kms-sdk');
 
 function main() {
   const envelope = fs.readFileSync('envelope.txt', 'utf8').trim();
