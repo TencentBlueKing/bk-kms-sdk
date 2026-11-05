@@ -1,0 +1,39 @@
+{
+  "name": "@blueking/bk-kms-sdk",
+  "version": "1.0.0",
+  "description": "BlueKing KMS SDK: local envelope decryption (RSA/SM2 + AES/SM4, CBC/CTR)",
+  "license": "MIT",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    }
+  },
+  "files": [
+    "src"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TencentBlueKing/bk-kms-sdk.git",
+    "directory": "nodejs"
+  },
+  "keywords": [
+    "bk-kms",
+    "blueking",
+    "kms",
+    "envelope",
+    "sm2",
+    "sm4"
+  ],
+  "dependencies": {
+    "sm-crypto-v2": "^2.0.0"
+  }
+}
