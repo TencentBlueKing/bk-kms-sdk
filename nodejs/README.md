@@ -1,6 +1,6 @@
 # BK-KMS-SDK Node.js 版本
 
-运行时解密还原凭证明文，信封格式由 KMS 服务约定，调用方无需关心。行为与 Go 版本 `decrypt.Decrypt` 对齐。
+运行时解密还原凭证明文，信封格式由 KMS 服务约定，调用方无需关心。
 
 ## 运行环境
 
@@ -62,7 +62,7 @@ ESM 与 TypeScript 均可直接使用：`import { decrypt } from 'bk-kms-sdk'`�
 npm test
 ```
 
-测试覆盖 Go 生成的全部 8 种 RSA/SM2 × AES/SM4 × CBC/CTR 向量、二进制数据密钥、RSA/AES/SM4 往返加解密及各类异常输入。`test/fixtures` 中的密钥仅用于测试，来源见 [fixtures 说明](test/fixtures/README.md)。
+测试覆盖 8 种 RSA/SM2 × AES/SM4 × CBC/CTR 向量、二进制数据密钥、RSA/AES/SM4 往返加解密及各类异常输入。`test/fixtures` 中的密钥仅用于测试，来源见 [fixtures 说明](test/fixtures/README.md)。
 
 ## License
 
